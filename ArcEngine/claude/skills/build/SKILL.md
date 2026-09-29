@@ -20,6 +20,8 @@ node tools/make-character.mjs          # regenerate assets/models/character.glb 
 node tools/make-character.mjs --check  # exit 1 if the file differs from the generator
 node tools/make-sounds.mjs             # regenerate assets/sounds/*.wav (the sample sounds, skill sound)
 node tools/make-sounds.mjs --check     # exit 1 if a file differs from the generator
+node tools/make-units.mjs              # regenerate 3D-models/*.glb (strategy units, tools/units/*.mjs)
+node tools/make-units.mjs --check      # exit 1 if a unit file differs from its generator
 ```
 
 Git: what stays out of the repository — `.gitignore`; `.gitattributes` (`* -text`) — files go
