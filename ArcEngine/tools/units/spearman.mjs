@@ -6,7 +6,7 @@ import { DEG, add, loopClip, onceClip, qmul, qrot, rig, rotX, rotY, rotZ, tween 
 import { B, BODY, FIST_R, HAND, armAngles, deathBody, face, idleBody, limbs, runBody } from './humanoid.mjs';
 
 const GRIP = 0.80;      // butt -> right fist along the shaft (bind pose: the spear upright)
-const SPACING = 0.36;   // right fist -> left fist along the shaft
+const SPACING = 0.30;   // right fist -> left fist along the shaft: the left arm must reach across
 const SINK = 0.02;      // a planted butt goes this deep: the ground under it may slope away
 const JOINTS = [...BODY, { name: 'spear', at: FIST_R, parent: B.foreR }];
 const { J, worldOf, aimJoint, reach } = rig(JOINTS);
@@ -72,9 +72,11 @@ function bothHands(pose, fist, aim) {
   return pose;
 }
 
-// A spear held forward crosses the body: from the right hip towards the front-left.
-const ACROSS = rotY(15 * DEG);
-const GUARD = { u: 0, ty: -25, lean: 4, hx: -0.16, hy: 1.04, hz: 0.0, pitch: 86, step: 0.3, hips: 0.88 };
+// The spear is held at the right side, the rear fist OUTSIDE the torso box (half-width 0.205 m
+// plus the shaft): a fist in front of the belly puts the shaft through the chest. The torso turns
+// right (ty < 0) so the left hand reaches the shaft, which points forward and inward (ac).
+// Poses found by a search: shaft >= 1 cm clear of the body boxes, both fists on the shaft.
+const GUARD = { u: 0, ty: -30, ac: 20, lean: 4, hx: -0.30, hy: 1.04, hz: 0.0, pitch: 86, step: 0.3, hips: 0.88 };
 
 const CLIPS = [
   // At ease: the spear upright in the right hand, butt on the ground, the left arm relaxed.
@@ -83,16 +85,16 @@ const CLIPS = [
     reach(pose, 'armR', 'foreR', [-0.30, 1.08 + 0.006 * Math.sin(t), 0.16], [-0.5, -0.5, -1], HAND);
     return plant(pose, qmul(rotZ(4 * DEG), rotX(-2 * DEG)));
   }),
-  // Run: the spear slanted forward and up across the body, in both hands.
-  loopClip('run', 0.64, 16, t => bothHands(runBody(t), [-0.12, 1.00 + 0.035 * Math.abs(Math.sin(t)), 0.04],
-    qmul(ACROSS, rotX((55 + 3 * Math.sin(2 * t)) * DEG)))),
+  // Run: the spear slanted forward and up at the right side, in both hands, torso turned right.
+  loopClip('run', 0.64, 16, t => bothHands({ ...runBody(t), 'torso.rotation': qmul(rotY(-20 * DEG), rotX(9 * DEG)) },
+    [-0.30, 0.98 + 0.035 * Math.abs(Math.sin(t)), 0.0], qmul(rotY(10 * DEG), rotX((55 + 3 * Math.sin(2 * t)) * DEG)))),
   // Attack: guard (spear level at the hip) -> draw back -> thrust with a lunge -> hold -> guard.
   loopClip('attack', 1.0, 20, (t) => {
     const p = tween(t / (2 * Math.PI), [
       GUARD,
-      { u: 0.35, ty: -30, lean: -4, hx: -0.16, hy: 1.06, hz: -0.12, pitch: 88, step: 0.3, hips: 0.89 },
-      { u: 0.5, ty: -30, lean: 14, hx: -0.16, hy: 1.10, hz: 0.22, pitch: 84, step: 1, hips: 0.85 },
-      { u: 0.62, ty: -30, lean: 12, hx: -0.16, hy: 1.09, hz: 0.20, pitch: 84, step: 1, hips: 0.85 },
+      { u: 0.35, ty: -40, ac: 20, lean: -4, hx: -0.30, hy: 1.04, hz: -0.10, pitch: 88, step: 0.3, hips: 0.89 },
+      { u: 0.5, ty: -20, ac: 20, lean: 14, hx: -0.22, hy: 1.04, hz: 0.25, pitch: 84, step: 1, hips: 0.85 },
+      { u: 0.62, ty: -20, ac: 20, lean: 12, hx: -0.22, hy: 1.04, hz: 0.24, pitch: 84, step: 1, hips: 0.85 },
       { ...GUARD, u: 1 },
     ]);
     return bothHands({
@@ -103,7 +105,7 @@ const CLIPS = [
       'legR.rotation': qmul(rotZ(-5 * DEG), rotX(14 * DEG * p.step)),
       'shinL.rotation': rotX(18 * DEG * p.step),
       'shinR.rotation': rotX(8 * DEG * p.step),
-    }, [p.hx, p.hy, p.hz], qmul(ACROSS, rotX(p.pitch * DEG)));
+    }, [p.hx, p.hy, p.hz], qmul(rotY(p.ac * DEG), rotX(p.pitch * DEG)));
   }),
   // Death: the knees buckle, he falls on his back, the spear stays along the body, its tip a few
   // degrees up: flat along the model, a 2.6 m spear sinks into any rise of the ground.

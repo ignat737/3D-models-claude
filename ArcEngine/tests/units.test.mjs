@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { test } from 'node:test';
 import { IK_MISSES, UNITS, buildGlb, buildMesh, outOf } from '../tools/make-units.mjs';
+import { add, qconj, qrot, rig, sub } from '../tools/unit-glb.mjs';
 
 function parseGlb(buf) {
   assert.equal(buf.toString('latin1', 0, 4), 'glTF');
@@ -74,6 +75,31 @@ for (const unit of UNITS) {
 
 test('юниты: руки дотягиваются до целей IK (древко, тетива)', () => {
   assert.deepEqual(IK_MISSES, []);
+});
+
+// The spear's shaft axis, sampled every 2 cm, against the body boxes (torso, belt, hips, head,
+// thighs, upper arms) in every frame of idle/run/attack: it must stay outside by its radius.
+test('копейщик: древко не проходит сквозь тело ни в одном кадре', () => {
+  const unit = UNITS.find(u => u.name === 'spearman');
+  const { J, worldOf } = rig(unit.joints);
+  const body = ['torso', 'hips', 'head', 'legL', 'legR', 'shinL', 'shinR', 'armL', 'armR'];
+  const boxes = unit.parts.filter(p => p.s && !p.q && p.s[0] > 0.1 && body.includes(unit.joints[p.joint].name));
+  const RADIUS = 0.022;
+  for (const clip of unit.clips.filter(c => c.name !== 'death')) {
+    for (let f = 0; f < clip.times.length; f++) {
+      const pose = Object.fromEntries([...clip.tracks].map(([k, v]) => [k, v[f]]));
+      const spear = worldOf(pose, J.spear);
+      for (let y = -0.8; y <= 1.8; y += 0.02) {
+        const pt = add(spear.p, qrot(spear.q, [0, y, 0]));
+        for (const b of boxes) {
+          const w = worldOf(pose, b.joint);
+          const rel = sub(add(qrot(qconj(w.q), sub(pt, w.p)), unit.joints[b.joint].at), b.c);
+          const depth = Math.min(...[0, 1, 2].map(k => b.s[k] / 2 + RADIUS - Math.abs(rel[k])));
+          assert.ok(depth <= 0, `${clip.name} кадр ${f}: древко в ${unit.joints[b.joint].name} на ${(depth * 100).toFixed(1)} см`);
+        }
+      }
+    }
+  }
 });
 
 test('юниты: имена уникальны, у каждого поле preview с его клипами', () => {
