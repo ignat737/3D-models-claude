@@ -9,6 +9,8 @@
 // own StandardMaterial: base color (linear -> gamma, like FBX), base color texture, normal map,
 // alpha, culling and sideOrientation (glTF front faces are counter-clockwise — the loader
 // sets the flag on the material, losing it turns the model inside out).
+// Colour textures are loaded WITHOUT sRGB buffers: with them the GPU decodes texels to linear,
+// which is right for PBR but makes a StandardMaterial (gamma space) render the texture too dark.
 // CLIPS: glTF animations by name — Clips3D: play('run') cross-fades from the current clip.
 
 /** @satisfies {Record<string, any>} */
@@ -27,7 +29,7 @@ const Gltf3D = {
         const key = scene.uid + '|' + url;
         let p = this._cache.get(key);
         if (!p) {
-            p = BABYLON.LoadAssetContainerAsync(url, scene).then((container) => {
+            p = BABYLON.LoadAssetContainerAsync(url, scene, { pluginOptions: { gltf: { useSRGBBuffers: false } } }).then((container) => {
                 for (const g of container.animationGroups) g.stop();   // the loader starts the first one
                 scene.onDisposeObservable.addOnce(() => {
                     this._cache.delete(key);

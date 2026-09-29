@@ -123,7 +123,10 @@ assets/           ground_texture_{g,d,s}.jpg — трава, песок, сне�
                   (character.glb — персонаж с клипами idle/run, генерируется tools/make-character.mjs);
                   sounds/*.wav, *.mp3 — звуки (step.wav генерируется tools/make-sounds.mjs)
 tools/            dev-server.mjs, build.mjs, asset-scan.mjs, zip.mjs, check.mjs (типы + тесты),
-                  make-character.mjs, make-sounds.mjs
+                  make-character.mjs, make-sounds.mjs; make-units.mjs + unit-glb.mjs + units/*.mjs —
+                  генератор low-poly юнитов для стратегии в 3D-models/
+3D-models/        модели юнитов (GLB: один меш, один материал-палитра, клипы idle/run/attack/death),
+                  генерируются tools/make-units.mjs; в игру — копией в assets/models/ (README.md)
 tsconfig.json     проверка типов игры; globals.d.ts — window.app, material.arcToon, записи объектов
 tests/            *.test.mjs (node --test): Store, heightAt, сканер ассетов, запись редактора, звук,
                   связка скиллов; browser-scripts.mjs — скрипты игры в node:vm + пустышка Babylon
