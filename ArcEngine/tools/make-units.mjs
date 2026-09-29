@@ -8,15 +8,17 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import url from 'node:url';
-import { buildGlb, buildMesh } from './unit-glb.mjs';
+import { IK_MISSES, buildGlb, buildMesh } from './unit-glb.mjs';
+import archer from './units/archer.mjs';
+import spearman from './units/spearman.mjs';
 import swordsman from './units/swordsman.mjs';
 
 const ROOT = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), '..');
 const OUT_DIR = path.join(ROOT, '3D-models');
-const UNITS = [swordsman];
+const UNITS = [swordsman, archer, spearman];
 const outOf = unit => path.join(OUT_DIR, unit.name + '.glb');
 
-export { UNITS, OUT_DIR, outOf, buildGlb, buildMesh };
+export { UNITS, OUT_DIR, outOf, buildGlb, buildMesh, IK_MISSES };
 
 if (process.argv[1] && path.resolve(process.argv[1]) === url.fileURLToPath(import.meta.url)) {
   const names = process.argv.slice(2).filter(a => !a.startsWith('--'));
@@ -26,6 +28,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === url.fileURLToPath(impor
     process.exit(1);
   }
   const chosen = names.length ? UNITS.filter(u => names.includes(u.name)) : UNITS;
+  for (const m of IK_MISSES) console.log(`  IK: ${m.joint} не дотягивается на ${m.cm} см (рука висит в воздухе)`);
   let stale = 0;
   fs.mkdirSync(OUT_DIR, { recursive: true });
   for (const unit of chosen) {

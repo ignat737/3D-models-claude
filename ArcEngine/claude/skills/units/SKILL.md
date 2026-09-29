@@ -13,6 +13,7 @@ node tools/unit-preview.mjs swordsman          # 3D-models/previews/swordsman.pn
 node tools/unit-preview.mjs swordsman --squad  # 30 units from the RTS camera
 node tools/unit-preview.mjs swordsman --near   # close-up: faces, buckles, weapon grip
 node tools/unit-preview.mjs swordsman --pose=run@0.16,attack@0.36,death@1.3 --out=x.png
+node tools/unit-preview.mjs archer --heading=90 --pose=attack@1.0   # from the unit's left side
 ```
 
 A unit is CODE, never a hand-edited file: `tools/units/<unit>.mjs` describes it,
@@ -44,12 +45,17 @@ part samples the centre of its texel. One draw call per unit, whatever the numbe
 Every part is outlined by the toon ink: ten tiny boxes read as noise, one bigger box reads as
 a shape. Merge details before adding triangles.
 
-## Unit file anatomy (`tools/units/swordsman.mjs` is the template)
+## Unit file anatomy
 
-- `JOINTS` — `{ name, at, parent }`, `at` is the bind position in MODEL space (meters, feet
-  at y = 0). The bind pose has no rotations. Copy the 11 humanoid joints (`hips`, `torso`,
-  `head`, `armL/R`, `foreL/R`, `legL/R`, `shinL/R`) and add one joint per held item at the fist
-  (`[±0.27, 0.85, 0]`, parent — the forearm).
+Templates: `swordsman.mjs` (arms by angles, items by `aimJoint`), `spearman.mjs` (arms by IK,
+a two-handed weapon), `archer.mjs` (IK, a stretching string, an item shown and hidden by scale).
+`tools/units/humanoid.mjs` is the shared body: `BODY` (11 joints), `B` (their indices),
+`face()`, `limbs({ pauldron, upper, fore, fist, thigh, flap, shin, boot })` (a piece without a
+colour is left out), `armAngles`, `idleBody(t)`, `runBody(t)`, `deathBody(u)`, `FIST_L/R`, `HAND`.
+
+- `JOINTS` — `[...BODY, items]`; `{ name, at, parent }`, `at` is the bind position in MODEL space
+  (meters, feet at y = 0). The bind pose has no rotations. One joint per held item at the fist
+  (`FIST_L` / `FIST_R`, parent — the forearm).
 - `PALETTE` — `{ name, hex }` (sRGB). Order is texel order; appending keeps other texels.
 - `PARTS` — rigid on one joint. Box `{ c, s }`; frustum about the vertical axis
   `{ c, h, r: [bottom, top], n, sq }` (`sq` squashes Z: a flat blade); optional `q` + `pivot`
@@ -61,7 +67,24 @@ a shape. Merge details before adding triangles.
   `tween(u, stops)` for key poses (attacks). A pose is `{ 'joint.rotation': quat,
   'hips.translation': [x, y, z] }`; every frame must set the same tracks (the builder throws).
 - `aimJoint(pose, 'shield', worldQuat)` — an item that keeps its own world orientation
-  whatever the arm does (shield facing forward, banner upright).
+  whatever the arm does (shield facing forward, banner upright); a 4th argument slides the item
+  along its +Y through the fist (a spear planted on the ground: `spearman.mjs` `plant`).
+- `reach(pose, 'armR', 'foreR', target, pole, HAND)` — two-bone IK: the fist goes to a
+  model-space point, the elbow bends towards `pole`. Set the body tracks first (the shoulder
+  moves with the torso). A two-handed weapon: right fist by IK, weapon by `aimJoint`, left fist
+  by IK to a point along the weapon. Targets out of reach go to `IK_MISSES`: `make-units`
+  prints them and a test fails — a hand floating next to its shaft.
+- `pointJoint(pose, name, worldDir)`, `placeJoint(pose, name, worldPoint)` — aim a limb, move a
+  joint (its translation track: the bow's `nock` follows the drawing fist).
+- Span part `{ span: [a, b], joints: [ja, jb], w }` — a bar whose ends are skinned to two
+  joints: it stretches (the bow string: tip on `bow`, middle on `nock`).
+- `'arrow.scale': [s, s, s]` hides and shows an item. Never 0: a zero-scaled skinned normal
+  normalizes to NaN and the HDR pipeline spreads it over the whole frame; 0.02 inside a fist is
+  invisible.
+- A track only some clips have (the `nock` translation) is fine: `Clips3D` fades the old clip
+  to weight 0 and the bone returns to bind. Inside ONE clip every frame sets the same tracks.
+- `preview: 'idle@0.6,attack@1.0'` in the export — the default poses of `unit-preview.mjs`:
+  pick the moment that shows the unit best (the full draw, the thrust).
 
 ## Axes and signs (the model faces +Z, +X is the unit's LEFT)
 
@@ -98,13 +121,21 @@ A ranged unit keeps the names (`attack` = draw and release) so game code stays t
   `useSRGBBuffers: false`, keep it (skill `world3d`).
 - `tween` smoothsteps between stops: a strike needs its stops close together (0.4 -> 0.58),
   or it looks like a slow push.
+- Check reach before posing: an arm reaches `0.55` m from the shoulder. Nocking an arrow with
+  the bow already at full arm's length put the string 7 cm out of reach — bring the bow close,
+  then extend while drawing.
+- An item lying on the ground after death: exactly flat in model space it sinks into any rise
+  of the terrain (a 2.6 m spear always does) — tilt it a few degrees up.
+- A front view hides depth: check draws, thrusts and swings with `--heading=90`.
 
 ## Checklist
 
-1. New unit: copy `tools/units/swordsman.mjs`, add it to `UNITS` in `tools/make-units.mjs`
-   and a row in `3D-models/README.md`.
+1. New unit: copy the closest template, add it to `UNITS` in `tools/make-units.mjs`, a row in
+   the tables of `3D-models/README.md` and its preview images there.
 2. `node tools/make-units.mjs <unit>` — read the triangle count it prints.
-3. `node tools/check.mjs` passes (file = generator, one primitive, seamless loops, death on the ground).
-4. `node tools/unit-preview.mjs <unit>`, `--squad`, and `--pose=` for every clip you touched —
-   LOOK at the PNGs (open the image), lint must be clean. The default outputs in
+3. `node tools/check.mjs` passes (file = generator, one primitive, seamless loops, death on the
+   ground, no IK misses). After touching `humanoid.mjs` or `unit-glb.mjs`, unchanged units must
+   stay byte-identical: `node tools/make-units.mjs --check` before regenerating.
+4. `node tools/unit-preview.mjs <unit>`, `--squad`, `--heading=90`, and `--pose=` for every clip
+   you touched — LOOK at the PNGs (open the image), lint must be clean. The default outputs in
    `3D-models/previews/` are the pictures users see: regenerate them after a visual change.

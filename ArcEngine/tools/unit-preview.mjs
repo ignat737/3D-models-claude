@@ -6,8 +6,9 @@
 //   node tools/unit-preview.mjs swordsman --squad        # 3D-models/previews/swordsman-squad.png
 //   node tools/unit-preview.mjs swordsman --pose=run@0.16,death@1.3 --out=shot.png
 //   node tools/unit-preview.mjs swordsman --near         # close-up of the first pose (details)
+//   node tools/unit-preview.mjs archer --heading=90      # every unit turned: 90 — seen from its left side
 //
-// --pose: clip@seconds, one unit per pose, side by side (default idle@0.6,attack@0.52).
+// --pose: clip@seconds, one unit per pose, side by side (default: the unit's `preview` field).
 // --squad: 30 units in 5 ranks, clips idle/run/attack mixed, from an RTS camera height.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -17,7 +18,7 @@ import { UNITS, buildGlb, outOf } from './make-units.mjs';
 
 // Runs in the page. Units stand south of the kit's farmer and mill, the view is framed from the
 // terrain height there: absolute heights would put the eye inside a hill.
-function placeScript(file, poses, mode) {
+function placeScript(file, poses, mode, heading) {
   return `
 const view = app.location.view, scene = view.scene, T = app.location.terrain;
 const model = await Model3D.load(${JSON.stringify(file)}, scene);
@@ -36,7 +37,7 @@ const add = (x, y, heading, clip, sec) => {
   g.goToFrame(Math.min(sec * 60, g.to));
   units.push(u);
 };
-const poses = ${JSON.stringify(poses)}, mode = ${JSON.stringify(mode)};
+const poses = ${JSON.stringify(poses)}, mode = ${JSON.stringify(mode)}, heading = ${JSON.stringify(heading)};
 let pose;
 if (mode === 'squad') {
   const clips = ['idle', 'run', 'attack'];
@@ -46,7 +47,8 @@ if (mode === 'squad') {
   const h = T.heightAt(1000, 1060);
   pose = { eye: [870, 1060, h + 160], target: [1000, 1060, h] };
 } else {
-  poses.forEach((p, i) => add(1000 + 6 * i, 1130 + 28 * i, Math.PI * (i % 2 ? 0.95 : 1.12), p.clip, p.sec));
+  // heading: the camera looks along +X, a unit at rotation PI faces it; +90° shows its left side.
+  poses.forEach((p, i) => add(1000 + 6 * i, 1130 + 28 * i, heading === null ? Math.PI * (i % 2 ? 0.95 : 1.12) : Math.PI + heading * Math.PI / 180, p.clip, p.sec));
   const cx = 1000 + 3 * (poses.length - 1), cy = 1130 + 14 * (poses.length - 1), h = T.heightAt(cx, cy);
   const k = mode === 'near' ? 0.55 : Math.max(1.3, poses.length * 0.65);
   pose = { eye: [cx - 58 * k, cy - 16 * k, h + 22 + 12 * k], target: [cx, cy, h + (mode === 'near' ? 30 : 20)] };
@@ -75,7 +77,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === url.fileURLToPath(impor
     process.exit(1);
   }
   const mode = process.argv.includes('--squad') ? 'squad' : process.argv.includes('--near') ? 'near' : 'row';
-  const poses = (arg('pose') || (mode === 'near' ? 'idle@0.6' : 'idle@0.6,attack@0.52')).split(',').map((s) => {
+  const poses = (arg('pose') || (mode === 'near' ? 'idle@0.6' : unit.preview || 'idle@0.6,attack@0.5')).split(',').map((s) => {
     const [clip, sec] = s.split('@');
     return { clip, sec: Number(sec) || 0 };
   });
@@ -87,7 +89,8 @@ if (process.argv[1] && path.resolve(process.argv[1]) === url.fileURLToPath(impor
   });
   try {
     const rel = path.relative(ROOT, file).split(path.sep).join('/');
-    const info = await page.eval(placeScript(rel, poses, mode));
+    const heading = arg('heading') === '' ? null : Number(arg('heading'));
+    const info = await page.eval(placeScript(rel, poses, mode, heading));
     if (info.clamped) console.log('  камера поднята над землёй (Debug3D.hold clamped): кадр может быть не тем');
     await page.shot(out);
     const findings = await lint(page);
