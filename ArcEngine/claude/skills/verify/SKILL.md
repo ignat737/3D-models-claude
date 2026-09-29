@@ -9,6 +9,8 @@ The game and the editor run in the Browser pane from `.claude/launch.json` (`gam
 `editor` — 9377; copy `claude/launch.json` if it is missing). Tests cover logic only — a
 change to geometry, materials, light or shaders is verified in the pane. `Debug3D`
 (`js/Debug3D.js`) is loaded in both pages; it does nothing until called.
+No Browser pane (cloud sandbox, CI) — skill `headless`: `tools/browser.mjs` runs the same page
+in headless Chrome for screenshots, probes and the lint.
 
 ## The user sees the same tab
 

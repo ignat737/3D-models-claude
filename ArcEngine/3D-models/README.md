@@ -49,6 +49,8 @@ clips.play('death', { loop: false });
 node tools/make-units.mjs              # пересобрать все модели
 node tools/make-units.mjs swordsman    # только мечника
 node tools/make-units.mjs --check      # проверить, что файлы совпадают с генератором
+node tools/unit-preview.mjs swordsman          # previews/swordsman.png — снимок в сцене игры
+node tools/unit-preview.mjs swordsman --squad  # previews/swordsman-squad.png — отряд с камеры RTS
 ```
 
 Юнит описан в `tools/units/<имя>.mjs` (кости, детали из коробок и усечённых конусов, палитра,
