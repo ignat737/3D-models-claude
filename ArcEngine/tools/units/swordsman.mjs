@@ -43,7 +43,10 @@ const FIST = JOINTS[J.sword].at;
 // the disc whatever the arm does (a forearm-strapped shield is pierced by the fist on a raised arm).
 const SHIELD = [0.27, 0.85, 0.09];
 const ALONG_FIST = rotX(90 * DEG);   // parts built along +Y, turned to point forward (+Z)
-const sword = (d, part) => ({ ...part, c: [FIST[0], FIST[1] + d, FIST[2]], joint: J.sword, q: ALONG_FIST, pivot: FIST });
+// The sword is also turned 90° about its own axis first: the edges face up and down in the bind
+// pose, the crossguard stands vertical.
+const SWORD_Q = qmul(ALONG_FIST, rotY(90 * DEG));
+const sword = (d, part) => ({ ...part, c: [FIST[0], FIST[1] + d, FIST[2]], joint: J.sword, q: SWORD_Q, pivot: FIST });
 const shield = (d, part) => ({ ...part, c: [SHIELD[0], SHIELD[1] + d, SHIELD[2]], joint: J.shield, q: ALONG_FIST, pivot: SHIELD });
 
 const PARTS = [
