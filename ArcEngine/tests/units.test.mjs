@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { test } from 'node:test';
-import { UNITS, buildGlb, buildMesh, outOf } from '../tools/make-units.mjs';
+import { IK_MISSES, UNITS, buildGlb, buildMesh, outOf } from '../tools/make-units.mjs';
 
 function parseGlb(buf) {
   assert.equal(buf.toString('latin1', 0, 4), 'glTF');
@@ -71,3 +71,14 @@ for (const unit of UNITS) {
     assert.ok(hips[hips.length - 1][1] < 0.25, 'таз у земли');
   });
 }
+
+test('юниты: руки дотягиваются до целей IK (древко, тетива)', () => {
+  assert.deepEqual(IK_MISSES, []);
+});
+
+test('юниты: имена уникальны, у каждого поле preview с его клипами', () => {
+  assert.equal(new Set(UNITS.map(u => u.name)).size, UNITS.length);
+  for (const unit of UNITS) {
+    for (const p of unit.preview.split(',')) assert.ok(unit.clips.some(c => c.name === p.split('@')[0]), unit.name + ': ' + p);
+  }
+});

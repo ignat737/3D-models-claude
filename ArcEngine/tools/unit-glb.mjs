@@ -22,8 +22,21 @@ export const qconj = q => [-q[0], -q[1], -q[2], q[3]];
 export const qrot = (q, v) => qmul(qmul(q, [v[0], v[1], v[2], 0]), qconj(q)).slice(0, 3);
 export const add = (a, b) => a.map((v, k) => v + b[k]);
 export const sub = (a, b) => a.map((v, k) => v - b[k]);
-const normalize = v => v.map(x => x / Math.hypot(...v));
+export const scale3 = (v, k) => v.map(x => x * k);
+export const lerp = (a, b, k) => a.map((v, i) => v + (b[i] - v) * k);
+export const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+export const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+export const norm = v => v.map(x => x / Math.hypot(...v));
+const normalize = norm;
 const smooth = x => x * x * (3 - 2 * x);
+
+// The shortest rotation taking direction u to direction v (any lengths).
+export function fromTo(u, v) {
+  const a = norm(u), b = norm(v), d = dot(a, b);
+  if (d < -0.999999) return [...norm(Math.abs(a[0]) < 0.9 ? cross(a, [1, 0, 0]) : cross(a, [0, 1, 0])), 0];
+  const c = cross(a, b), q = [c[0], c[1], c[2], 1 + d], l = Math.hypot(...q);
+  return q.map(x => x / l);
+}
 
 // Key poses -> the pose at u: stops = [{ u, param: number, … }] sorted by u, the first at 0 and
 // the last at 1; every stop has the same params. Smoothstep between neighbouring stops.
@@ -39,6 +52,10 @@ export function tween(u, stops) {
 
 // --- Skeleton and clips -------------------------------------------------------------
 
+// Every IK target an arm could not reach while the units were built: { joint, cm }. A hand that
+// misses its shaft or string floats in the air — make-units warns, the tests fail.
+export const IK_MISSES = [];
+
 // joints: [{ name, at: bind position in model space, parent: index | -1 }].
 export function rig(joints) {
   const J = Object.fromEntries(joints.map((j, i) => [j.name, i]));
@@ -50,15 +67,42 @@ export function rig(joints) {
     const r = pose[j.name + '.rotation'] || [0, 0, 0, 1];
     return { q: qmul(parent.q, r), p: add(parent.p, qrot(parent.q, t)) };
   };
-  // An item joint (shield, banner…) keeps its bind offset from the parent but turns to the world
-  // rotation aim, whatever the arm does.
-  const aimJoint = (pose, name, aim) => {
-    const j = joints[J[name]];
-    const q = qmul(qconj(worldOf(pose, j.parent).q), aim);
-    pose[name + '.rotation'] = q[3] < 0 ? q.map(v => -v) : q;
+  const setRotation = (pose, name, q) => { pose[name + '.rotation'] = q[3] < 0 ? q.map(v => -v) : q; };
+  const parentQ = (pose, i) => (joints[i].parent < 0 ? [0, 0, 0, 1] : worldOf(pose, joints[i].parent).q);
+  // An item joint (shield, spear…) turns to the world rotation aim, whatever the arm does.
+  // slide (optional) — meters along the item's +Y: the item slides through the fist.
+  const aimJoint = (pose, name, aim, slide) => {
+    const j = joints[J[name]], inv = qconj(parentQ(pose, J[name]));
+    setRotation(pose, name, qmul(inv, aim));
+    if (slide !== undefined) pose[name + '.translation'] = add(sub(j.at, joints[j.parent].at), qrot(inv, qrot(aim, [0, slide, 0])));
     return pose;
   };
-  return { J, worldOf, aimJoint };
+  // Turn a joint so that its bind direction rest points along worldDir.
+  const pointJoint = (pose, name, worldDir, rest = [0, -1, 0]) => {
+    setRotation(pose, name, fromTo(rest, qrot(qconj(parentQ(pose, J[name])), worldDir)));
+    return pose;
+  };
+  // Two-bone IK: the point `hand` meters below the fore joint goes to target (model space), the
+  // elbow bends towards pole. Returns how far the target stays out of reach (0 — reached).
+  const reach = (pose, upper, fore, target, pole, hand) => {
+    const bone = sub(joints[J[fore]].at, joints[J[upper]].at), a = Math.hypot(...bone);
+    const s = worldOf(pose, J[upper]).p, d = sub(target, s), full = Math.hypot(...d);
+    const dist = Math.min(Math.max(full, 1e-4), a + hand - 1e-4), dir = norm(d);
+    const cosA = Math.max(-1, Math.min(1, (a * a + dist * dist - hand * hand) / (2 * a * dist)));
+    const side = norm(sub(pole, scale3(dir, dot(pole, dir))));
+    const elbow = add(s, scale3(add(scale3(dir, cosA), scale3(side, Math.sqrt(1 - cosA * cosA))), a));
+    pointJoint(pose, upper, sub(elbow, s), norm(bone));
+    pointJoint(pose, fore, sub(add(s, scale3(dir, dist)), elbow));
+    if (full - dist > 0.005) IK_MISSES.push({ joint: upper, cm: +((full - dist) * 100).toFixed(1) });
+    return full - dist;
+  };
+  // Move a joint (its translation track) to a model-space point: a string nock, a sliding item.
+  const placeJoint = (pose, name, worldPos) => {
+    const par = worldOf(pose, joints[J[name]].parent);
+    pose[name + '.translation'] = qrot(qconj(par.q), sub(worldPos, par.p));
+    return pose;
+  };
+  return { J, worldOf, aimJoint, pointJoint, reach, placeJoint };
 }
 
 // A looped clip: frames + 1 keys, the last one repeats the first — the loop has no seam.
@@ -91,6 +135,8 @@ function sampleClip(name, duration, frames, loop, poseAt) {
 // (s absent) — a frustum about the vertical axis: center c, height h, radii r [bottom, top],
 // n sides, smooth side normals, sq — squash along Z (a sword blade). Optional q — a rotation of
 // the whole part about pivot (default c): a shield disc facing forward, a sword along the fist.
+// A span { span: [a, b], joints: [ja, jb], w } — a thin square bar from a to b whose a-end is
+// skinned to ja and b-end to jb: it stretches when the joints move apart (a bow string).
 const FACES = [
   { n: [1, 0, 0], v: [[1, -1, 1], [1, -1, -1], [1, 1, -1], [1, 1, 1]] },
   { n: [-1, 0, 0], v: [[-1, -1, -1], [-1, -1, 1], [-1, 1, 1], [-1, 1, -1]] },
@@ -102,12 +148,12 @@ const FACES = [
 
 function emitter(out, p, uv) {
   const pivot = p.pivot || p.c;
-  return (pos, normal) => {
+  return (pos, normal, joint = p.joint) => {
     const v = p.q ? add(pivot, qrot(p.q, sub(pos, pivot))) : pos;
     out.positions.push(...v);
     out.normals.push(...(p.q ? qrot(p.q, normal) : normal));
     out.uvs.push(...uv);
-    out.joints.push(p.joint, 0, 0, 0);
+    out.joints.push(joint, 0, 0, 0);
     return out.positions.length / 3 - 1;
   };
 }
@@ -117,6 +163,15 @@ function addBox(out, p, uv) {
   for (const f of FACES) {
     const [a, b, c, d] = f.v.map(v => emit([0, 1, 2].map(k => p.c[k] + v[k] * p.s[k] / 2), f.n));
     out.indices.push(a, b, c, a, c, d);
+  }
+}
+
+function addSpan(out, p, uv) {
+  const [from, to] = p.span, len = Math.hypot(...sub(to, from)), c = lerp(from, to, 0.5);
+  const emit = emitter(out, { ...p, c, q: fromTo([0, 1, 0], sub(to, from)), pivot: c }, uv);
+  for (const f of FACES) {
+    const [a, b, cc, d] = f.v.map(v => emit([c[0] + v[0] * p.w / 2, c[1] + v[1] * len / 2, c[2] + v[2] * p.w / 2], f.n, p.joints[v[1] < 0 ? 0 : 1]));
+    out.indices.push(a, b, cc, a, cc, d);
   }
 }
 
@@ -169,8 +224,8 @@ export function buildMesh(unit) {
   for (const p of unit.parts) {
     const i = index[p.color];
     if (i === undefined) throw new Error(`${unit.name}: no palette colour "${p.color}"`);
-    if (!(p.joint >= 0 && p.joint < unit.joints.length)) throw new Error(`${unit.name}: bad joint ${p.joint}`);
-    (p.s ? addBox : addRound)(out, p, [(i % size + 0.5) / size, (Math.floor(i / size) + 0.5) / size]);
+    for (const j of p.span ? p.joints : [p.joint]) if (!(j >= 0 && j < unit.joints.length)) throw new Error(`${unit.name}: bad joint ${j}`);
+    (p.span ? addSpan : p.s ? addBox : addRound)(out, p, [(i % size + 0.5) / size, (Math.floor(i / size) + 0.5) / size]);
   }
   checkWinding(out, unit.name);
   if (out.positions.length / 3 > 65535) throw new Error(`${unit.name}: too many vertices for 16-bit indices`);
