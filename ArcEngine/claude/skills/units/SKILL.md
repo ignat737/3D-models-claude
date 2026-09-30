@@ -47,7 +47,7 @@ a shape. Merge details before adding triangles.
 
 ## Unit file anatomy
 
-Templates: `swordsman.mjs` (arms by angles, items by `aimJoint`), `spearman.mjs` (arms by IK,
+Templates: `swordsman.mjs` (arms by angles, items by `aimJoint`), `orc.mjs` (an own taller skeleton 1.15x, `grow()` scales the shared clips' hips track, a two-handed axe, attack poses found by a search), `spearman.mjs` (arms by IK,
 a two-handed weapon), `archer.mjs` (IK, a stretching string, an item shown and hidden by scale).
 `tools/units/humanoid.mjs` is the shared body: `BODY` (11 joints), `B` (their indices),
 `face()`, `limbs({ pauldron, upper, fore, fist, thigh, flap, shin, boot })` (a piece without a
@@ -130,7 +130,7 @@ A ranged unit keeps the names (`attack` = draw and release) so game code stays t
 - A two-handed weapon held "in front of the belly" goes through the chest: the rear fist must be
   OUTSIDE the torso box (|x| >= 0.205 + shaft radius), the torso turned toward the weapon side so
   the other hand still reaches the shaft. Pictures miss a 5 cm overlap — measure it: sample the
-  shaft axis against the body boxes in every frame (`tests/units.test.mjs`, spearman test).
+  shaft axis against the body boxes in every frame (`tests/units.test.mjs`, spearman and orc tests).
 
 ## Checklist
 
