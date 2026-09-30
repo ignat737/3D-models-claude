@@ -78,16 +78,15 @@ test('юниты: руки дотягиваются до целей IK (древ
 });
 
 // A weapon's shaft axis, sampled every 2 cm, against the body boxes (torso, belt, hips, head,
-// legs and, unless `bodyOnly`, arms) in every frame of idle/run/attack: it must stay outside by its
-// radius. Frames where the item is hidden (scale < 1: a thrown javelin) are skipped. The troll's
-// club is checked along its handle only: its head is meant to come close in a smash.
+// legs, arms) in every frame of idle/run/attack: it must stay outside by its radius. Frames where
+// the item is hidden (scale < 1: a thrown javelin) are skipped. The troll's club is checked along
+// its handle only: its head is meant to come close in a smash.
 const BODY_ALL = ['torso', 'hips', 'head', 'legL', 'legR', 'shinL', 'shinR', 'armL', 'armR'];
-const BODY_ONLY = ['torso', 'hips', 'head', 'legL', 'legR', 'shinL', 'shinR'];
 for (const { unit: name, joint, radius, from, to, body, title } of [
   { unit: 'spearman', joint: 'spear', radius: 0.022, from: -0.8, to: 1.8, body: BODY_ALL, title: 'копейщик: древко' },
   { unit: 'orc', joint: 'axe', radius: 0.032, from: -0.2, to: 1.5, body: BODY_ALL, title: 'орк: древко топора' },
   { unit: 'goblin', joint: 'spear', radius: 0.018, from: -0.75, to: 0.72, body: BODY_ALL, title: 'гоблин: древко копья' },
-  { unit: 'troll', joint: 'club', radius: 0.06, from: -0.3, to: 0.5, body: BODY_ONLY, title: 'тролль: рукоять дубины' },
+  { unit: 'troll', joint: 'club', radius: 0.06, from: -0.42, to: 0.5, body: BODY_ALL, title: 'тролль: рукоять дубины' },
 ]) {
   test(`${title} не проходит сквозь тело ни в одном кадре`, () => {
     const unit = UNITS.find(u => u.name === name);
