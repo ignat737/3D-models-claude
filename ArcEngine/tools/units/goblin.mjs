@@ -32,13 +32,13 @@ const PALETTE = [
 ];
 
 const spearAt = y => add(FIST_R, [0, y, 0]);
-// Spare javelins strapped on the back, leaning: rod and head share one rotation about the rod centre.
-const ROD_Q = a => rotZ(a * DEG);
+// Spare javelins strapped on the back, leaning: rod and head are laid out upright and share one
+// rotation about the rod centre, so the head stays on the end of its rod.
 const rod = (x, a, z) => {
-  const c = [x, 1.12, z], up = [-Math.sin(a * DEG), Math.cos(a * DEG), 0];
+  const c = [x, 1.12, z], q = rotZ(a * DEG);
   return [
-    { c, h: 0.80, r: [0.014, 0.014], n: 6, q: ROD_Q(a), joint: B.torso, color: 'wood' },
-    { c: add(c, up.map(v => v * 0.44)), h: 0.09, r: [0.024, 0.003], n: 4, q: ROD_Q(a), pivot: c, joint: B.torso, color: 'steel' },
+    { c, h: 0.80, r: [0.014, 0.014], n: 6, q, joint: B.torso, color: 'wood' },
+    { c: add(c, [0, 0.44, 0]), h: 0.09, r: [0.024, 0.003], n: 4, q, pivot: c, joint: B.torso, color: 'steel' },
   ];
 };
 
@@ -82,7 +82,7 @@ const PARTS = [
 
 // Hidden by a tiny scale, never 0: a zero-scaled skinned normal normalizes to NaN.
 const HIDDEN = 0.02;
-const FRAMES = 18;
+const FRAMES = 36;
 
 // The javelin in the right fist at the world rotation aim, the butt slid down to the ground.
 function plant(pose, aim) {
@@ -100,13 +100,12 @@ const THROW = [
   { u: 0.30, hx: -0.24, hy: 1.26, hz: -0.26, pitch: 62, yaw: 4, ty: -50, lean: -2, step: 0.25, hips: HIPS - 0.01, lx: -85, flx: -10 },
   { u: 0.50, hx: -0.20, hy: 1.34, hz: 0.38, pitch: 55, yaw: 2, ty: 10, lean: 20, step: 1, hips: HIPS - 0.04, lx: -20, flx: -40 },
   { u: 0.62, hx: -0.14, hy: 1.05, hz: 0.50, pitch: 45, yaw: 0, ty: 25, lean: 26, step: 1, hips: HIPS - 0.05, lx: 10, flx: -20 },
-  { u: 0.85, hx: -0.20, hy: 1.28, hz: -0.12, pitch: 80, yaw: 6, ty: -20, lean: 6, step: 0.2, hips: HIPS - 0.01, lx: -30, flx: -30 },
+  { u: 0.85, hx: -0.26, hy: 1.26, hz: -0.14, pitch: 85, yaw: 0, ty: -20, lean: 6, step: 0.2, hips: HIPS - 0.01, lx: -30, flx: -30 },
   { ...GUARD, u: 1 },
 ];
-// Frames: 0-9 draw and hurl (the javelin leaves the hand at frame 9), 10-11 it flies, 12-15 the
-// hand is empty, 16-17 a new javelin comes out of the bundle.
-const FLIGHT = { 10: 0.9, 11: 2.4 };
-const SHOWN = i => (i >= 12 && i <= 15 ? HIDDEN : i === 16 ? 0.5 : 1);
+// The javelin vanishes the frame it leaves the hand (0-19 draw and hurl, 20-30 the hand is empty)
+// and a new one is in the fist when it comes back from the bundle (31).
+const SHOWN = i => (i >= 20 && i <= 30 ? HIDDEN : 1);
 
 const CLIPS = [
   // At ease: the javelin planted in the right hand, a nervous look around.
@@ -137,7 +136,7 @@ const CLIPS = [
       'shinR.rotation': rotX(8 * DEG * p.step),
     });
     reach(pose, 'armR', 'foreR', [p.hx, p.hy, p.hz], [-1, -0.6, -0.3], HAND);
-    aimJoint(pose, 'spear', qmul(rotY(p.yaw * DEG), rotX(p.pitch * DEG)), FLIGHT[i] || 0);
+    aimJoint(pose, 'spear', qmul(rotY(p.yaw * DEG), rotX(p.pitch * DEG)), 0);
     return sc(pose, SHOWN(i));
   }),
   // Death: the knees buckle, he falls on his back, the javelin stays along the body, its tip a few
