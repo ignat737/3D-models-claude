@@ -122,10 +122,10 @@ function plant(pose, aim) {
 
 // Both hands on the haft: the right fist at fist (model space), the axe at aim, the left fist
 // SPACING further along the haft.
-function bothHands(pose, fist, aim) {
-  reach(pose, 'armR', 'foreR', fist, [-1, -0.6, -0.4], HAND);
+function bothHands(pose, fist, aim, poleR = [-1, -0.6, -0.4], poleL = [1, -0.8, 0.2]) {
+  reach(pose, 'armR', 'foreR', fist, poleR, HAND);
   aimJoint(pose, 'axe', aim, 0);
-  reach(pose, 'armL', 'foreL', add(worldOf(pose, J.axe).p, qrot(aim, [0, SPACING, 0])), [1, -0.8, 0.2], HAND);
+  reach(pose, 'armL', 'foreL', add(worldOf(pose, J.axe).p, qrot(aim, [0, SPACING, 0])), poleL, HAND);
   return pose;
 }
 
@@ -134,32 +134,34 @@ function bothHands(pose, fist, aim) {
 const tilt = (lat, pitch) => qmul(rotZ(-lat * DEG), rotX(pitch * DEG));
 
 const HUNCH = 8;   // degrees of stoop in idle
-// Attack key poses, one per frame of the clip (22), found by a search: haft >= 1 cm clear of the body
-// boxes, both fists on the haft. hx/hy/hz — right fist, lat/pitch — haft, ty/lean — torso, step — lunge.
+// Attack key poses, one per frame of the clip (22), found by a sequential search: the haft >= 1 cm
+// clear of the body boxes, the arms clear of the torso and head, each frame close to the previous one
+// (no flips). hx/hy/hz — right fist, lat/pitch — haft, ty/lean — torso, step — lunge, pr*/pl* — the
+// direction the right/left elbow bends to.
 const CHOP = [
-  { u: 0, hx: -0.384, hy: 1.366, hz: -0.039, lat: 30.93, pitch: -30, ty: -2.019, lean: 16.979, step: 0.3, hips: 1 },
-  { u: 1 / 22, hx: -0.384, hy: 1.361, hz: -0.054, lat: 32.2, pitch: -32.82, ty: -1.778, lean: 14.12, step: 0.3, hips: 1 },
-  { u: 2 / 22, hx: -0.347, hy: 1.388, hz: -0.107, lat: 35.118, pitch: -35.21, ty: -2.348, lean: 13.824, step: 0.3, hips: 1 },
-  { u: 3 / 22, hx: -0.375, hy: 1.389, hz: -0.07, lat: 32.387, pitch: -42.83, ty: 3.628, lean: 8.47, step: 0.3, hips: 1 },
-  { u: 4 / 22, hx: -0.364, hy: 1.409, hz: -0.094, lat: 33.531, pitch: -47.93, ty: 6.074, lean: 6.208, step: 0.3, hips: 1 },
-  { u: 5 / 22, hx: -0.335, hy: 1.641, hz: 0.097, lat: 24.697, pitch: -54.08, ty: -24.785, lean: 1.854, step: 0.3, hips: 1 },
-  { u: 6 / 22, hx: -0.329, hy: 1.627, hz: 0.098, lat: 22.465, pitch: -57.46, ty: -31.51, lean: 1.39, step: 0.3, hips: 1 },
-  { u: 7 / 22, hx: -0.319, hy: 1.629, hz: 0.093, lat: 21.992, pitch: -59.99, ty: -32.795, lean: 0.593, step: 0.3, hips: 1 },
-  { u: 8 / 22, hx: -0.342, hy: 1.563, hz: 0.138, lat: 16.276, pitch: -33.72, ty: -32.115, lean: 3.665, step: 0.42, hips: 1 },
-  { u: 9 / 22, hx: -0.31, hy: 1.32, hz: 0.32, lat: 17.6, pitch: 27.23, ty: -33.28, lean: 16.49, step: 0.68, hips: 0.98 },
-  { u: 10 / 22, hx: -0.29, hy: 1.15, hz: 0.43, lat: 14.88, pitch: 82.51, ty: -32.48, lean: 29.09, step: 0.92, hips: 0.97 },
-  { u: 11 / 22, hx: -0.287, hy: 1.093, hz: 0.465, lat: 13.809, pitch: 100.79, ty: -33.415, lean: 33.88, step: 1, hips: 0.97 },
-  { u: 12 / 22, hx: -0.279, hy: 1.068, hz: 0.477, lat: 12.953, pitch: 103.95, ty: -33.743, lean: 36.055, step: 1, hips: 0.96 },
-  { u: 13 / 22, hx: -0.279, hy: 1.053, hz: 0.486, lat: 12.372, pitch: 106.5, ty: -34.52, lean: 38.08, step: 1, hips: 0.96 },
-  { u: 14 / 22, hx: -0.278, hy: 1.04, hz: 0.484, lat: 12.197, pitch: 106.29, ty: -34.332, lean: 38.954, step: 0.99, hips: 0.96 },
-  { u: 15 / 22, hx: -0.29, hy: 1.06, hz: 0.45, lat: 13.53, pitch: 94.3, ty: -32.06, lean: 36.55, step: 0.93, hips: 0.96 },
-  { u: 16 / 22, hx: -0.3, hy: 1.08, hz: 0.4, lat: 14.87, pitch: 82.26, ty: -30.17, lean: 34.54, step: 0.87, hips: 0.97 },
-  { u: 17 / 22, hx: -0.32, hy: 1.13, hz: 0.3, lat: 17.79, pitch: 56.07, ty: -26.07, lean: 30.22, step: 0.73, hips: 0.98 },
-  { u: 18 / 22, hx: -0.36, hy: 1.177, hz: 0.261, lat: 15.189, pitch: 35.26, ty: -21.168, lean: 24.396, step: 0.63, hips: 0.98 },
-  { u: 19 / 22, hx: -0.405, hy: 1.242, hz: 0.221, lat: 10.258, pitch: 11.91, ty: -15.428, lean: 18.452, step: 0.52, hips: 0.99 },
-  { u: 20 / 22, hx: -0.39, hy: 1.295, hz: -0.062, lat: 22.354, pitch: -7.94, ty: -4.345, lean: 21.474, step: 0.41, hips: 0.99 },
-  { u: 21 / 22, hx: -0.378, hy: 1.335, hz: -0.075, lat: 29.768, pitch: -21.16, ty: -6.993, lean: 19.507, step: 0.34, hips: 1 },
-  { u: 1, hx: -0.384, hy: 1.366, hz: -0.039, lat: 30.93, pitch: -30, ty: -2.019, lean: 16.979, step: 0.3, hips: 1 },
+  { u: 0 / 22, hx: -0.361, hy: 1.244, hz: 0.323, lat: 24.853, pitch: 10.023, ty: -12.05, lean: 10.897, step: 0.3, hips: 1, prx: -1, pry: -0.8, prz: 0, plx: 1, ply: -0.81, plz: 0.2 },
+  { u: 1 / 22, hx: -0.361, hy: 1.244, hz: 0.322, lat: 24.853, pitch: 9.761, ty: -12.62, lean: 10.681, step: 0.3, hips: 1, prx: -1, pry: -0.8, prz: 0, plx: 1, ply: -0.81, plz: 0.2 },
+  { u: 2 / 22, hx: -0.359, hy: 1.244, hz: 0.321, lat: 24.497, pitch: 8.942, ty: -13.517, lean: 9.997, step: 0.3, hips: 1, prx: -0.99, pry: -0.79, prz: 0, plx: 1, ply: -0.81, plz: 0.2 },
+  { u: 3 / 22, hx: -0.35, hy: 1.245, hz: 0.316, lat: 24.185, pitch: 7.312, ty: -15.127, lean: 8.502, step: 0.3, hips: 1, prx: -1, pry: -0.8, prz: 0, plx: 1, ply: -0.81, plz: 0.2 },
+  { u: 4 / 22, hx: -0.34, hy: 1.315, hz: 0.323, lat: 23.516, pitch: 9.512, ty: -17.624, lean: 6.056, step: 0.3, hips: 1, prx: -1, pry: -0.8, prz: 0, plx: 1, ply: -0.8, plz: 0.19 },
+  { u: 5 / 22, hx: -0.331, hy: 1.379, hz: 0.318, lat: 22.593, pitch: 7.093, ty: -20.268, lean: 4.276, step: 0.3, hips: 1, prx: -0.99, pry: -0.8, prz: 0, plx: 1, ply: -0.8, plz: 0.2 },
+  { u: 6 / 22, hx: -0.32, hy: 1.439, hz: 0.315, lat: 21.59, pitch: 4.405, ty: -22.741, lean: 2.561, step: 0.3, hips: 1, prx: -1, pry: -0.8, prz: 0, plx: 1, ply: -0.8, plz: 0.2 },
+  { u: 7 / 22, hx: -0.312, hy: 1.482, hz: 0.306, lat: 20.849, pitch: 4.005, ty: -24.702, lean: 1.517, step: 0.3, hips: 1, prx: -1, pry: -0.81, prz: 0, plx: 1, ply: -0.8, plz: 0.2 },
+  { u: 8 / 22, hx: -0.307, hy: 1.475, hz: 0.307, lat: 20.241, pitch: 6.308, ty: -26.186, lean: 2.96, step: 0.428, hips: 0.995, prx: -1, pry: -0.8, prz: 0, plx: 1, ply: -0.8, plz: 0.2 },
+  { u: 9 / 22, hx: -0.302, hy: 1.402, hz: 0.329, lat: 18.899, pitch: 19.483, ty: -27.383, lean: 9.111, step: 0.709, hips: 0.982, prx: -1, pry: -0.8, prz: 0, plx: 1, ply: -0.8, plz: 0.2 },
+  { u: 10 / 22, hx: -0.298, hy: 1.297, hz: 0.376, lat: 17.274, pitch: 46.014, ty: -28.329, lean: 16.97, step: 0.952, hips: 0.972, prx: -1, pry: -0.8, prz: 0, plx: 1, ply: -0.8, plz: 0.2 },
+  { u: 11 / 22, hx: -0.295, hy: 1.218, hz: 0.412, lat: 15.982, pitch: 66.634, ty: -29.025, lean: 22.688, step: 1, hips: 0.969, prx: -1, pry: -0.8, prz: 0, plx: 1, ply: -0.8, plz: 0.2 },
+  { u: 12 / 22, hx: -0.292, hy: 1.161, hz: 0.44, lat: 14.857, pitch: 80.818, ty: -29.774, lean: 27.158, step: 1, hips: 0.965, prx: -1, pry: -0.8, prz: 0, plx: 1, ply: -0.8, plz: 0.2 },
+  { u: 13 / 22, hx: -0.288, hy: 1.115, hz: 0.461, lat: 13.801, pitch: 90.666, ty: -30.49, lean: 30.958, step: 1, hips: 0.961, prx: -1, pry: -0.8, prz: 0, plx: 1, ply: -0.8, plz: 0.2 },
+  { u: 14 / 22, hx: -0.284, hy: 1.088, hz: 0.474, lat: 13.277, pitch: 95.51, ty: -31.16, lean: 33.791, step: 0.996, hips: 0.96, prx: -1, pry: -0.8, prz: 0, plx: 1, ply: -0.8, plz: 0.2 },
+  { u: 15 / 22, hx: -0.284, hy: 1.074, hz: 0.476, lat: 13.192, pitch: 95.397, ty: -31.192, lean: 34.786, step: 0.95, hips: 0.963, prx: -1, pry: -0.81, prz: 0, plx: 1, ply: -0.8, plz: 0.2 },
+  { u: 16 / 22, hx: -0.288, hy: 1.075, hz: 0.469, lat: 13.579, pitch: 91.277, ty: -30.192, lean: 34.178, step: 0.864, hips: 0.968, prx: -1, pry: -0.81, prz: 0, plx: 1, ply: -0.8, plz: 0.2 },
+  { u: 17 / 22, hx: -0.295, hy: 1.089, hz: 0.453, lat: 14.612, pitch: 82.119, ty: -28.169, lean: 32.091, step: 0.752, hips: 0.974, prx: -1, pry: -0.8, prz: 0, plx: 1, ply: -0.8, plz: 0.2 },
+  { u: 18 / 22, hx: -0.305, hy: 1.111, hz: 0.43, lat: 16.192, pitch: 68.842, ty: -25.646, lean: 29.03, step: 0.627, hips: 0.981, prx: -1, pry: -0.8, prz: 0, plx: 1, ply: -0.8, plz: 0.2 },
+  { u: 19 / 22, hx: -0.318, hy: 1.139, hz: 0.404, lat: 18.077, pitch: 52.425, ty: -22.79, lean: 25.465, step: 0.506, hips: 0.988, prx: -1, pry: -0.8, prz: 0, plx: 1, ply: -0.8, plz: 0.2 },
+  { u: 20 / 22, hx: -0.329, hy: 1.168, hz: 0.376, lat: 19.954, pitch: 35.732, ty: -19.777, lean: 21.913, step: 0.401, hips: 0.994, prx: -1, pry: -0.8, prz: 0, plx: 1, ply: -0.8, plz: 0.2 },
+  { u: 21 / 22, hx: -0.339, hy: 1.195, hz: 0.349, lat: 21.724, pitch: 20.516, ty: -17.264, lean: 18.561, step: 0.328, hips: 0.998, prx: -1, pry: -0.81, prz: 0, plx: 1, ply: -0.8, plz: 0.2 },
+  { u: 22 / 22, hx: -0.361, hy: 1.244, hz: 0.323, lat: 24.853, pitch: 10.023, ty: -12.05, lean: 10.897, step: 0.3, hips: 1, prx: -1, pry: -0.8, prz: 0, plx: 1, ply: -0.81, plz: 0.2 },
 ];
 
 const CLIPS = [
@@ -188,7 +190,7 @@ const CLIPS = [
       'legR.rotation': qmul(rotZ(-5 * DEG), rotX(16 * DEG * p.step)),
       'shinL.rotation': rotX(18 * DEG * p.step),
       'shinR.rotation': rotX(8 * DEG * p.step),
-    }, [p.hx, p.hy, p.hz], tilt(p.lat, p.pitch));
+    }, [p.hx, p.hy, p.hz], tilt(p.lat, p.pitch), [p.prx, p.pry, p.prz], [p.plx, p.ply, p.plz]);
   }),
   // Death: the knees buckle, he falls on his back, the axe lies along the body rolled onto its
   // flat, the head a few degrees up: flat along the model it sinks into any rise of the ground.
