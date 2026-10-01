@@ -8,6 +8,7 @@
 //   node tools/unit-preview.mjs swordsman --near         # close-up of the first pose (details)
 //   node tools/unit-preview.mjs archer --heading=90      # every unit turned: 90 — seen from its left side
 //   node tools/unit-preview.mjs horse --rider=swordsman  # the horse with a swordsman in the saddle
+//   --gap=90: spacing of the poses in px (the default fits a standing unit; a fallen one is wider)
 //
 // --pose: clip@seconds, one unit per pose, side by side (default: the unit's `preview` field).
 // --squad: 30 units in 5 ranks, clips idle/run/attack mixed, from an RTS camera height.
@@ -45,7 +46,7 @@ const add = (x, y, heading, clip, sec) => {
     const r = Model3D.build(riderModel, scene, { name: 'rider' + units.length });
     World3D.addObject(view, r, 'actor');
     if (!Model3D.mount(r, u, 'saddle')) throw new Error('у модели нет кости saddle');
-    freeze(r, clip === 'run' ? 'rideRun' : 'ride', sec);
+    freeze(r, clip === 'idle' ? 'ride' : 'ride' + clip[0].toUpperCase() + clip.slice(1), sec);
   }
   units.push(u);
 };
@@ -54,7 +55,7 @@ let pose;
 if (mode === 'squad') {
   // Ranks and files scale with the unit's length (gap / 28: 1 for a human).
   const g = gap / 28, rank = 16 * (1 + (g - 1) * 1.3), file = 15 * g, f = Math.pow(g, 0.9);
-  const clips = ['idle', 'run', 'attack'].filter(c => model.clips.includes(c));
+  const clips = ['idle', 'run', 'attack', 'runAttack'].filter(c => model.clips.includes(c));
   for (let r = 0; r < 5; r++) for (let k = 0; k < 6; k++) {
     add(960 + r * rank + (k % 2) * 4 * g, 1020 + k * file, Math.PI * 0.9, clips[(r + k) % clips.length], ((r * 7 + k * 3) % 10) / 10 * 0.6);
   }
@@ -97,7 +98,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === url.fileURLToPath(impor
   }
   const riderFile = riderUnit ? path.relative(ROOT, outOf(riderUnit)).split(path.sep).join('/') : null;
   const mode = process.argv.includes('--squad') ? 'squad' : process.argv.includes('--near') ? 'near' : 'row';
-  const poses = (arg('pose') || (mode === 'near' ? 'idle@0.6' : unit.preview || 'idle@0.6,attack@0.5')).split(',').map((s) => {
+  const poses = (arg('pose') || (mode === 'near' ? 'idle@0.6' : (riderUnit && unit.riderPreview) || unit.preview || 'idle@0.6,attack@0.5')).split(',').map((s) => {
     const [clip, sec] = s.split('@');
     return { clip, sec: Number(sec) || 0 };
   });
@@ -110,7 +111,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === url.fileURLToPath(impor
   try {
     const rel = path.relative(ROOT, file).split(path.sep).join('/');
     const heading = arg('heading') === '' ? null : Number(arg('heading'));
-    const info = await page.eval(placeScript(rel, poses, mode, heading, unit.previewGap || 28, riderFile));
+    const info = await page.eval(placeScript(rel, poses, mode, heading, Number(arg('gap')) || unit.previewGap || 28, riderFile));
     if (info.clamped) console.log('  камера поднята над землёй (Debug3D.hold clamped): кадр может быть не тем');
     await page.shot(out);
     const findings = await lint(page);

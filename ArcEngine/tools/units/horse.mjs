@@ -2,8 +2,10 @@
 // 2.3 m nose to rump. Bay coat, dark mane and tail, white blaze and socks, team-coloured saddle
 // blanket, leather saddle with stirrups. Faces +Z (the glTF front), +X is its left. No rider:
 // the `saddle` joint sits where a rider's hips go, the rider is parented to it
-// (Model3D.mount, the swordsman's `ride` clips). Clips: "idle" and "run" (both looped).
-import { DEG, loopClip, qmul, rotX, rotY, rotZ } from '../unit-glb.mjs';
+// (Model3D.mount, the swordsman's `ride*` clips). Clips, each paired with a rider clip of the same
+// length: "idle", "run", "attack" (standing, a rear and a stamp), "runAttack" (a gallop, two
+// strides) — looped; "death" (kneels, rolls onto its right side) — once, stays down.
+import { DEG, add, loopClip, onceClip, qconj, qmul, qrot, rig, rotX, rotY, rotZ, sub, tween } from '../unit-glb.mjs';
 import { SIDES } from './humanoid.mjs';
 
 const JOINTS = [
@@ -91,17 +93,54 @@ const PARTS = [
   ]),
 ];
 
+const { worldOf } = rig(JOINTS);
+const smooth = x => { const k = Math.min(1, Math.max(0, x)); return k * k * (3 - 2 * k); };
+
+// Seat frame under a pose: the rider's origin and axes (his clips are written in it).
+export const saddleFrame = pose => worldOf(pose, J.saddle);
+
+// Lowest and highest point of any part under a pose (box corners; a frustum counts as its
+// bounding box): a standing horse touches the ground, a fallen one lies on it.
+export function extentY(pose) {
+  const W = JOINTS.map((_, i) => worldOf(pose, i));
+  let low = Infinity, high = -Infinity;
+  for (const p of PARTS) {
+    const w = W[p.joint], half = p.s ? p.s.map(v => v / 2) : [Math.max(...p.r), p.h / 2, Math.max(...p.r)];
+    for (const sx of [-1, 1]) for (const sy of [-1, 1]) for (const sz of [-1, 1]) {
+      let v = [p.c[0] + sx * half[0], p.c[1] + sy * half[1], p.c[2] + sz * half[2]];
+      if (p.q) { const pv = p.pivot || p.c; v = add(pv, qrot(p.q, sub(v, pv))); }
+      const y = add(w.p, qrot(w.q, sub(v, JOINTS[p.joint].at)))[1];
+      low = Math.min(low, y);
+      high = Math.max(high, y);
+    }
+  }
+  return [low, high];
+}
+
+// Body at height y, then lowered or lifted so that the lowest point is exactly on the ground.
+function grounded(pose, x = 0, z = 0) {
+  pose['body.translation'] = [x, 1.15, z];
+  pose['body.translation'][1] -= extentY(pose)[0];
+  return pose;
+}
+
+// Legs by angles (degrees): f swings the leg forward, s folds the lower leg back.
+const legs4 = (pose, { ff = 0, fs = 0, hf = 0, hs = 0, fr = 0 }) => {
+  // fr — the right front leg lags behind the left one by that many degrees (a stamp).
+  for (const [name, f, s] of [['FL', ff, fs], ['FR', ff - fr, fs], ['HL', hf, hs], ['HR', hf, hs]]) {
+    pose['leg' + name + '.rotation'] = rotX(-f * DEG);
+    pose['shin' + name + '.rotation'] = rotX(s * DEG);
+  }
+  return pose;
+};
+
 // Idle: breathing, the head sways slowly and dips, the tail flicks.
-const idle = t => ({
+const idle = t => legs4({
   'body.translation': [0, 1.15 + 0.006 * Math.sin(t), 0],
   'neck.rotation': qmul(rotY(7 * DEG * Math.sin(t)), rotX((-2 + 4 * Math.sin(t - 1)) * DEG)),
   'head.rotation': rotX((3 * Math.sin(t + 0.6)) * DEG),
   'tail.rotation': qmul(rotZ(7 * DEG * Math.sin(t + 1)), rotX((6 + 4 * Math.sin(t)) * DEG)),
-  'legFL.rotation': rotX(0), 'shinFL.rotation': rotX(0),
-  'legFR.rotation': rotX(0), 'shinFR.rotation': rotX(0),
-  'legHL.rotation': rotX(0), 'shinHL.rotation': rotX(0),
-  'legHR.rotation': rotX(0), 'shinHR.rotation': rotX(0),
-});
+}, {});
 
 // Gallop: the pairs of legs swing against each other (reach / gather), the knees fold on the
 // way forward, the body rises and pitches, the neck pumps, the tail streams.
@@ -109,13 +148,13 @@ const swing = (t, phase, amp, mid) => {
   const a = t + phase;
   return { leg: rotX(-(mid + amp * Math.sin(a)) * DEG), shin: rotX(85 * DEG * Math.max(0, Math.cos(a - 0.3)) ** 1.5) };
 };
-const run = (t) => {
+const run = (t, stretch = 0) => {
   const fl = swing(t, 0, 40, 6), fr = swing(t, -0.5, 40, 6);
   const hl = swing(t, Math.PI - 0.2, 34, -4), hr = swing(t, Math.PI + 0.3, 34, -4);
   return {
     'body.translation': [0, 1.15 + 0.05 * Math.abs(Math.sin(t + 0.4)), 0],
     'body.rotation': rotX((-4 * Math.sin(t + 0.4)) * DEG),
-    'neck.rotation': rotX((-4 + 7 * Math.sin(t - 0.8)) * DEG),
+    'neck.rotation': rotX((-4 + stretch + 7 * Math.sin(t - 0.8)) * DEG),
     'head.rotation': rotX((-6 + 4 * Math.sin(t - 1.4)) * DEG),
     'tail.rotation': qmul(rotZ(5 * DEG * Math.sin(2 * t)), rotX((38 + 8 * Math.sin(2 * t + 0.5)) * DEG)),
     'legFL.rotation': fl.leg, 'shinFL.rotation': fl.shin,
@@ -125,9 +164,50 @@ const run = (t) => {
   };
 };
 
+// Attack in place, in step with the rider (wind-up at 0.4, cut at 0.58): the horse rears a little,
+// front hooves folded, and comes down with a stamp and a lunge of the neck.
+const attack = (t) => {
+  const g = { u: 0, pitch: 0, neck: -2, head: 0, ff: 0, fs: 0, hf: 0, hs: 0, fr: 0, dz: 0 };
+  const p = tween(t / (2 * Math.PI), [
+    g,
+    { u: 0.4, pitch: 10, neck: -12, head: -10, ff: 30, fs: 75, hf: -6, hs: 18, fr: 0, dz: -0.02 },
+    { u: 0.58, pitch: -4, neck: 12, head: 8, ff: 24, fs: 4, hf: 5, hs: 0, fr: 10, dz: 0.07 },
+    { u: 0.75, pitch: -1, neck: 4, head: 2, ff: 8, fs: 0, hf: 2, hs: 0, fr: 4, dz: 0.03 },
+    { ...g, u: 1 },
+  ]);
+  return grounded(legs4({
+    'body.rotation': rotX(-p.pitch * DEG),
+    'neck.rotation': rotX(p.neck * DEG),
+    'head.rotation': rotX(p.head * DEG),
+    'tail.rotation': rotX((6 + 1.2 * p.pitch) * DEG),
+  }, p), 0, p.dz);
+};
+
+// Death, u from 0 to 1: the front knees buckle and the chest drops, the neck throws up, then the
+// horse rolls onto its right side (the rider goes over its back, toward -X) and lies still.
+export function deathPose(u) {
+  const buckle = smooth(u / 0.3), roll = smooth((u - 0.28) / 0.55) ** 1.4, settle = smooth((u - 0.8) / 0.2);
+  const rise = Math.sin(Math.PI * smooth(u / 0.4));
+  const pose = legs4({
+    'body.rotation': qmul(rotZ(90 * DEG * roll), rotX(14 * buckle * (1 - roll) * DEG)),
+    'neck.rotation': qmul(rotZ(-12 * roll * DEG), rotX((-18 * rise + 20 * roll) * DEG)),
+    'head.rotation': rotX((-10 * rise + 18 * roll) * DEG),
+    'tail.rotation': rotX((6 + 20 * roll) * DEG),
+  }, { ff: 10 * buckle + 20 * roll - 6 * settle, fs: 100 * buckle - 25 * roll, hf: -8 * roll + 12 * settle, hs: 25 * roll + 10 * settle, fr: 18 * roll });
+  return grounded(pose);
+}
+
 const CLIPS = [
   loopClip('idle', 2.4, 12, idle),
   loopClip('run', 0.64, 16, run),
+  loopClip('attack', 0.9, 18, attack),
+  loopClip('runAttack', 1.28, 32, t => run(2 * t, 5)),
+  onceClip('death', 1.8, 24, deathPose),
 ];
 
-export default { name: 'horse', joints: JOINTS, palette: PALETTE, parts: PARTS, clips: CLIPS, preview: 'idle@0.6,run@0.16,run@0.48', previewGap: 62 };
+export default {
+  name: 'horse', joints: JOINTS, palette: PALETTE, parts: PARTS, clips: CLIPS,
+  preview: 'idle@0.6,run@0.16,attack@0.52,death@1.7',
+  riderPreview: 'idle@0.6,attack@0.55,runAttack@0.6,death@1.5',
+  previewGap: 62,
+};

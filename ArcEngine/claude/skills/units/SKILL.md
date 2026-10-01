@@ -103,16 +103,32 @@ FBX models; `root.rotation.y` is the heading.
 ## Mounts and riders (horse.mjs)
 
 `horse.mjs` is a mount, not an infantry unit: an own skeleton (`body`, `neck`, `head`, `tail`,
-four legs of two joints, `saddle`), clips `idle` and `run` ONLY, no `attack`/`death`. The rider is
-a second model: `Model3D.mount(rider, horse, 'saddle')` parents its root to the `saddle` node (the
-joint node lives inside the mount's meters-to-px node, `Gltf3D.mount` undoes that), so the rider
-follows the horse's bounce and pitch. The swordsman has the matching clips `ride` (still) and
-`rideRun` (leaning forward, hips springing): hips at `SEAT` above the root, thighs by
-`pointJoint` forward and out, boots at about 0.43 m aside / 1.09 m up in the horse's frame — the
-horse's stirrups sit exactly there. Change one side, change the other (`tests/units.test.mjs`
-checks the knees stay outside the flanks, `--rider=swordsman` shows it). A mount with another
-rider needs its own seated clips. `previewGap` in the unit export is the spacing of the preview
-poses and squad (default 28, the horse 62).
+four legs of two joints, `saddle`) and its own clips `idle`, `run`, `attack` (in place: a rear and
+a stamp), `runAttack` (two gallop strides) and `death` (kneels, rolls onto its right side).
+The rider is a second model: `Model3D.mount(rider, horse, 'saddle')` parents its root to the
+`saddle` node (the joint node lives inside the mount's meters-to-px node, `Gltf3D.mount` undoes
+that), so the rider follows the horse's bounce, pitch and roll. The swordsman has a paired clip for
+EVERY horse clip, the same length and key count (test): `ride`, `rideRun`, `rideAttack`,
+`rideRunAttack`, `rideDeath`. A game plays the pair together (`unit-preview.mjs` maps
+`attack` -> `rideAttack` by name).
+
+- Seat: hips at `SEAT` above the root, thighs by `pointJoint` forward and out, boots about 0.43 m
+  aside / 1.09 m up in the horse's frame — the horse's stirrups sit exactly there. Change one
+  side, change the other (the test keeps the knees outside the flanks).
+- The sword cut is checked against the horse's boxes every frame (`tests/units.test.mjs`): the
+  rider's sword axis sampled against the neck, head, body and saddle under the PAIRED horse
+  clip. Change a horse clip -> the rider's cut may now go through its neck.
+- `horse.mjs` exports `saddleFrame(pose)`, `deathPose(u)` and `extentY(pose)` (lowest and highest
+  point of any part). `grounded(pose)` sets the body height so the hooves touch the ground in
+  `attack` and `death` (a rearing horse or a rolled one needs no hand-tuned height); the test
+  checks the hooves stay on the ground in `idle`/`attack` and the dead horse lies on it.
+- `rideDeath` is written in the saddle's frame, which ROLLS with the horse: the clip defines the
+  rider's path in the world (sits until u = 0.3, flies off over the back, lands at `LAND` on
+  his back beside the horse) and converts it into the saddle frame every frame with
+  `horseDeath(u)` and `saddleFrame`. A new horse death needs only the new `deathPose`.
+- A mount with another rider needs its own seated clips. `previewGap` in the unit export is the
+  spacing of the preview poses and squad (default 28, the horse 62), `--gap=` overrides it
+  (a fallen horse is wider); `riderPreview` — the default poses of `--rider=`.
 
 ## Clips every unit has
 
@@ -122,9 +138,10 @@ poses and squad (default 28, the horse 62).
 | `run` | yes | 0.64 s, 16 frames | legs +-42°, shins bend after the swing, hips bounce |
 | `attack` | yes | 0.9 s, 18 frames | guard -> wind-up -> strike with a step -> guard; melee loops it |
 | `death` | no | 1.3 s, 13 frames | ends lying: hips y < 0.25 (test); play with `{ loop: false }` |
-| `ride`, `rideRun` | yes | 2.4 s / 0.64 s | swordsman only: seated on a horse; `rideRun` pairs with the horse's `run` (same 0.64 s) |
+| `runAttack` | yes | 1.28 s, 32 frames | horse only (and `rideRunAttack` of the swordsman): an attack at a gallop |
+| `ride`, `rideRun`, `rideAttack`, `rideRunAttack`, `rideDeath` | as the horse's | = the horse's | swordsman only: seated on a horse, each pairs with the horse clip of the same length |
 
-A ranged unit keeps the names (`attack` = draw and release) so game code stays the same. Exceptions: the horse has only `idle` and `run`; the swordsman also has `ride` and `rideRun` (mounted). `idle` and `run` come first in every file (test).
+A ranged unit keeps the names (`attack` = draw and release) so game code stays the same. Exceptions: the horse's `attack` is a rear and a stamp, `runAttack` is the same at a gallop; the swordsman also has the mounted `ride*` clips (see Mounts). `idle` and `run` come first in every file (test).
 
 ## Pitfalls met so far
 
