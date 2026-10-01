@@ -37,7 +37,7 @@ part samples the centre of its texel. One draw call per unit, whatever the numbe
 
 | Thing | Limit | Why |
 |---|---|---|
-| Triangles | <= 1000 (test) | hundreds on screen; the swordsman is 756 |
+| Triangles | <= 1000 (test); `maxTriangles` in the export raises it for a combined unit (mounted swordsman: 1400 for 1312) | hundreds on screen; the swordsman is 756 |
 | Box | 12 triangles | the cheapest part — prefer boxes |
 | Frustum of n sides | 4n triangles | helmet 8, shield 10, grip 6, blade 4 (with `sq`) |
 | Joints | <= 255 (`JOINTS_0` is UBYTE) | humanoid: 11 + one per held item |
@@ -126,6 +126,12 @@ EVERY horse clip, the same length and key count (test): `ride`, `rideRun`, `ride
   rider's path in the world (sits until u = 0.3, flies off over the back, lands at `LAND` on
   his back beside the horse) and converts it into the saddle frame every frame with
   `horseDeath(u)` and `saddleFrame`. A new horse death needs only the new `deathPose`.
+- `mounted-swordsman.mjs` is the horse and the rider in ONE file: joints = horse + rider's (names
+  prefixed `rider_`, the rider's root hangs on `saddle`, his joints and parts move by the saddle's
+  bind position), palette merged by hex (the horse's `eye` texel becomes the mane's to stay at 16
+  colours), each horse clip merged with its paired `ride*` clip (tracks of both, the horse's name).
+  It draws nothing itself: change a horse or swordsman clip, `node tools/make-units.mjs` rebuilds
+  all three files. A pair that differs in length makes the builder throw.
 - A mount with another rider needs its own seated clips. `previewGap` in the unit export is the
   spacing of the preview poses and squad (default 28, the horse 62), `--gap=` overrides it
   (a fallen horse is wider); `riderPreview` — the default poses of `--rider=`.

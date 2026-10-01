@@ -128,7 +128,7 @@ tools/            dev-server.mjs, build.mjs, asset-scan.mjs, zip.mjs, check.mjs 
                   make-character.mjs, make-sounds.mjs; make-units.mjs + unit-glb.mjs + units/*.mjs —
                   генератор low-poly юнитов для стратегии в 3D-models/; browser.mjs — игра в headless
                   Chrome без панели браузера (скриншот, eval, lint); unit-preview.mjs — снимок юнита в сцене
-3D-models/        модели юнитов (GLB: один меш, один материал-палитра, клипы idle/run/attack/death; лошадь — idle, run, attack, runAttack, death и кость saddle),
+3D-models/        модели юнитов (GLB: один меш, один материал-палитра, клипы idle/run/attack/death; лошадь — idle, run, attack, runAttack, death и кость saddle; mounted-swordsman — всадник на лошади одним файлом),
                   генерируются tools/make-units.mjs; в игру — копией в assets/models/ (README.md)
 tsconfig.json     проверка типов игры; globals.d.ts — window.app, material.arcToon, записи объектов
 tests/            *.test.mjs (node --test): Store, heightAt, сканер ассетов, запись редактора, звук,
