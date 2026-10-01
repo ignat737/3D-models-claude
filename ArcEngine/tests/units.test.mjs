@@ -171,8 +171,14 @@ test('волк: клипы idle, run, attack, death; на земле в idle, н
 
 test('гоблин на волке: клипы волка, оба набора костей, 16 цветов, гоблин сидит на спине волка и не уходит под землю', () => {
   const m = UNITS.find(u => u.name === 'goblin-wolf-rider'), wolf = UNITS.find(u => u.name === 'wolf'), gob = UNITS.find(u => u.name === 'goblin');
-  assert.deepEqual(m.clips.map(c => c.name), wolf.clips.map(c => c.name));
-  assert.deepEqual(m.clips.map(c => c.loop), wolf.clips.map(c => c.loop));
+  assert.deepEqual(m.clips.map(c => c.name), ['idle', 'run', 'attack', 'throw', 'runThrow', 'death']);
+  assert.deepEqual(m.clips.map(c => c.loop), [true, true, true, true, true, false]);
+  for (const c of wolf.clips) {
+    // The wolf's own clips are carried over unchanged: same length, same wolf tracks.
+    const mc = m.clips.find(x => x.name === c.name);
+    assert.deepEqual(mc.times, c.times);
+    for (const [key, values] of c.tracks) assert.deepEqual(mc.tracks.get(key), values, c.name + ' ' + key);
+  }
   assert.equal(m.joints.length, wolf.joints.length + gob.joints.length);
   assert.equal(new Set(m.joints.map(j => j.name)).size, m.joints.length, 'имена костей уникальны');
   assert.equal(buildMesh(m).indices.length, buildMesh(wolf).indices.length + buildMesh(gob).indices.length);
@@ -196,6 +202,50 @@ test('гоблин на волке: клипы волка, оба набора �
   const death = m.clips.find(c => c.name === 'death'), end = poseAt(death, death.times.length - 1);
   const hips = worldOf(end, J.rider_hips).p;
   assert.ok(hips[1] < 0.35 && Math.abs(hips[0]) > 0.7, 'гоблин лежит на земле рядом с волком: ' + hips.map(v => v.toFixed(2)));
+});
+
+test('гоблин на волке: бросок — дротик исчезает в момент выпуска и возвращается из связки; у остальных клипов дротик в руке', () => {
+  const m = UNITS.find(u => u.name === 'goblin-wolf-rider');
+  for (const clip of m.clips) {
+    const scale = clip.tracks.get('rider_spear.scale');
+    if (!['throw', 'runThrow'].includes(clip.name)) { assert.equal(scale, undefined, clip.name); continue; }
+    assert.equal(clip.times.length, 37);
+    assert.ok(Math.abs(clip.times[36] - 1) < 1e-9, clip.name + ': 1 с');
+    const shown = scale.map(v => v[0]);
+    assert.ok(shown[0] === 1 && shown[36] === 1 && shown[19] === 1 && shown[20] < 0.1 && shown[30] < 0.1 && shown[31] === 1, clip.name);
+    assert.ok(shown.every(v => v >= 0.02), 'не ноль: нулевая нормаль даёт NaN');
+  }
+  // The rider acts: his head and torso move in idle, run and attack, not only the wolf's.
+  for (const name of ['idle', 'run', 'attack']) {
+    const clip = m.clips.find(c => c.name === name);
+    for (const key of ['rider_head.rotation', 'rider_torso.rotation']) {
+      const vs = clip.tracks.get(key);
+      assert.ok(vs.some(v => v.some((x, k) => Math.abs(x - vs[0][k]) > 0.02)), `${name}: ${key} движется`);
+    }
+  }
+});
+
+// The javelin's shaft, sampled every 2 cm, against the wolf's boxes in every frame it is held.
+test('гоблин на волке: дротик не проходит сквозь волка ни в одном кадре', () => {
+  const m = UNITS.find(u => u.name === 'goblin-wolf-rider'), wolf = UNITS.find(u => u.name === 'wolf');
+  const { J, worldOf } = rig(m.joints);
+  const boxes = m.parts.filter(p => p.s && !p.q && p.joint < wolf.joints.length);
+  for (const clip of m.clips.filter(c => c.name !== 'death')) {
+    const scale = clip.tracks.get('rider_spear.scale');
+    for (let f = 0; f < clip.times.length; f++) {
+      if (scale && scale[f][0] < 1) continue;
+      const pose = poseAt(clip, f), shaft = worldOf(pose, J.rider_spear);
+      for (let y = -0.75; y <= 0.72; y += 0.02) {
+        const pt = add(shaft.p, qrot(shaft.q, [0, y, 0]));
+        for (const b of boxes) {
+          const w = worldOf(pose, b.joint);
+          const rel = sub(add(qrot(qconj(w.q), sub(pt, w.p)), m.joints[b.joint].at), b.c);
+          const depth = Math.min(...[0, 1, 2].map(k => b.s[k] / 2 + 0.02 - Math.abs(rel[k])));
+          assert.ok(depth <= 0, `${clip.name} кадр ${f}: дротик в ${m.joints[b.joint].name} на ${(depth * 100).toFixed(1)} см`);
+        }
+      }
+    }
+  }
 });
 
 test('мечник верхом: каждый клип той же длины и с тем же числом кадров, что клип лошади', () => {

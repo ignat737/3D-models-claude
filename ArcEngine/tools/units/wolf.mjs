@@ -138,7 +138,7 @@ const legs4 = (pose, { ff = 0, fs = 0, hf = 0, hs = 0, fr = 0 }) => {
 };
 
 // Idle: breathing, the head sweeps slowly from side to side, the tail sways.
-const idle = t => legs4({
+export const idle = t => legs4({
   'body.translation': scaled([0, 0.62 + 0.005 * Math.sin(t), 0]),
   'neck.rotation': qmul(rotY(14 * DEG * Math.sin(t)), rotX((4 + 3 * Math.sin(t - 1)) * DEG)),
   'head.rotation': rotX((2 * Math.sin(t + 0.6)) * DEG),
@@ -152,7 +152,7 @@ const swing = (t, phase, amp, mid) => {
   const a = t + phase;
   return { leg: rotX(-(mid + amp * Math.sin(a)) * DEG), shin: rotX(95 * DEG * Math.max(0, Math.cos(a - 0.3)) ** 1.5) };
 };
-const run = (t) => {
+export const run = (t) => {
   const fl = swing(t, 0, 42, 8), fr = swing(t, -0.45, 42, 8);
   const hl = swing(t, Math.PI - 0.2, 38, -6), hr = swing(t, Math.PI + 0.25, 38, -6);
   return {
