@@ -17,10 +17,11 @@ import orc from './units/orc.mjs';
 import spearman from './units/spearman.mjs';
 import swordsman from './units/swordsman.mjs';
 import troll from './units/troll.mjs';
+import wolf from './units/wolf.mjs';
 
 const ROOT = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), '..');
 const OUT_DIR = path.join(ROOT, '3D-models');
-const UNITS = [swordsman, archer, spearman, orc, goblin, troll, horse, mountedSwordsman];
+const UNITS = [swordsman, archer, spearman, orc, goblin, troll, horse, mountedSwordsman, wolf];
 const outOf = unit => path.join(OUT_DIR, unit.name + '.glb');
 
 export { UNITS, OUT_DIR, outOf, buildGlb, buildMesh, IK_MISSES };
