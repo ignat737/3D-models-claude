@@ -41,7 +41,8 @@ for (const unit of UNITS) {
     const img = gltf.bufferViews[gltf.images[0].bufferView];
     assert.equal(bin.toString('latin1', img.byteOffset + 1, img.byteOffset + 4), 'PNG');
     assert.equal(gltf.samplers[0].minFilter, 9728, 'без мипмапов: палитра не сереет вдали');
-    assert.ok(buildMesh(unit).indices.length / 3 <= 1000, 'не больше 1000 треугольников');
+    const limit = unit.maxTriangles || 1000;
+    assert.ok(buildMesh(unit).indices.length / 3 <= limit, `не больше ${limit} треугольников`);
     // Every UV sits at a texel centre: a part is one flat colour.
     const uv = floats(gltf, bin, p.attributes.TEXCOORD_0);
     let size = 1;
@@ -209,4 +210,28 @@ test('мечник верхом: после смерти лошади лежит
   const world = add(S.p, qrot(S.q, hips));
   assert.ok(world[1] < 0.3, 'таз у земли: ' + world[1].toFixed(2));
   assert.ok(Math.abs(world[0]) > 0.9, 'в стороне от лошади: ' + world[0].toFixed(2));
+});
+
+test('всадник верхом: один файл из лошади и мечника, клипы лошади, 16 цветов, оба набора костей', () => {
+  const m = UNITS.find(u => u.name === 'mounted-swordsman'), horse = horseUnit(), sw = swordsmanUnit();
+  assert.deepEqual(m.clips.map(c => c.name), horse.clips.map(c => c.name));
+  assert.deepEqual(m.clips.map(c => c.loop), horse.clips.map(c => c.loop));
+  assert.equal(m.joints.length, horse.joints.length + sw.joints.length);
+  assert.equal(new Set(m.joints.map(j => j.name)).size, m.joints.length, 'имена костей уникальны');
+  assert.equal(buildMesh(m).indices.length, buildMesh(horse).indices.length + buildMesh(sw).indices.length);
+  assert.equal(m.palette.length, 16, 'палитра 4x4');
+  for (const clip of m.clips) {
+    for (const [key, values] of clip.tracks) assert.equal(values.length, clip.times.length, clip.name + ' ' + key);
+    assert.ok(clip.tracks.has('body.translation') && clip.tracks.has('rider_hips.translation'), clip.name + ': лошадь и всадник');
+  }
+});
+
+test('всадник верхом: мечник сидит на седле (таз над сиденьем) во всех кадрах бега', () => {
+  const m = UNITS.find(u => u.name === 'mounted-swordsman'), { J, worldOf } = rig(m.joints);
+  const run = m.clips.find(c => c.name === 'run');
+  for (let f = 0; f < run.times.length; f++) {
+    const pose = poseAt(run, f), saddle = worldOf(pose, J.saddle), hips = worldOf(pose, J.rider_hips);
+    const rel = qrot(qconj(saddle.q), sub(hips.p, saddle.p));   // in the saddle's frame: it pitches with the horse
+    assert.ok(Math.abs(rel[0]) < 1e-6 && Math.abs(rel[1] - 0.13) < 0.03 && Math.abs(rel[2]) < 1e-6, `кадр ${f}: таз ${rel.map(v => v.toFixed(3))}`);
+  }
 });
