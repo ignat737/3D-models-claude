@@ -8,6 +8,7 @@ import { IK_MISSES, UNITS, buildGlb, buildMesh, outOf } from '../tools/make-unit
 import { add, qconj, qrot, rig, sub } from '../tools/unit-glb.mjs';
 import { extentY } from '../tools/units/horse.mjs';
 import { extentY as wolfExtentY } from '../tools/units/wolf.mjs';
+import { riderMinY } from '../tools/units/goblin-wolf-rider.mjs';
 
 function parseGlb(buf) {
   assert.equal(buf.toString('latin1', 0, 4), 'glTF');
@@ -166,6 +167,35 @@ test('волк: клипы idle, run, attack, death; на земле в idle, н
   const death = wolf.clips.find(c => c.name === 'death');
   const [low, high] = wolfExtentY(poseAt(death, death.times.length - 1));
   assert.ok(Math.abs(low) < 0.01 && high < 0.5, 'лежит на боку: ' + high.toFixed(2));
+});
+
+test('гоблин на волке: клипы волка, оба набора костей, 16 цветов, гоблин сидит на спине волка и не уходит под землю', () => {
+  const m = UNITS.find(u => u.name === 'goblin-wolf-rider'), wolf = UNITS.find(u => u.name === 'wolf'), gob = UNITS.find(u => u.name === 'goblin');
+  assert.deepEqual(m.clips.map(c => c.name), wolf.clips.map(c => c.name));
+  assert.deepEqual(m.clips.map(c => c.loop), wolf.clips.map(c => c.loop));
+  assert.equal(m.joints.length, wolf.joints.length + gob.joints.length);
+  assert.equal(new Set(m.joints.map(j => j.name)).size, m.joints.length, 'имена костей уникальны');
+  assert.equal(buildMesh(m).indices.length, buildMesh(wolf).indices.length + buildMesh(gob).indices.length);
+  assert.ok(m.palette.length <= 16, 'палитра 4x4');
+  const { J, worldOf } = rig(m.joints);
+  for (const clip of m.clips) {
+    for (const [key, values] of clip.tracks) assert.equal(values.length, clip.times.length, clip.name + ' ' + key);
+    assert.ok(clip.tracks.has('body.translation') && clip.tracks.has('rider_torso.rotation'), clip.name + ': волк и гоблин');
+    for (let f = 0; f < clip.times.length; f++) {
+      const pose = poseAt(clip, f);
+      if (clip.loop) {
+        // Seated: his hips keep their place in the body's frame, so he rides with every bounce and pitch.
+        const body = worldOf(pose, J.body), hips = worldOf(pose, J.rider_hips);
+        const rel = qrot(qconj(body.q), sub(hips.p, body.p));
+        assert.ok(Math.abs(rel[0]) < 1e-6 && Math.abs(rel[1] - 0.35) < 0.02 && Math.abs(rel[2] - 0.03) < 1e-6, `${clip.name} кадр ${f}: таз ${rel.map(v => v.toFixed(3))}`);
+      } else {
+        assert.ok(riderMinY(pose) > -0.01, `${clip.name} кадр ${f}: гоблин под землёй`);
+      }
+    }
+  }
+  const death = m.clips.find(c => c.name === 'death'), end = poseAt(death, death.times.length - 1);
+  const hips = worldOf(end, J.rider_hips).p;
+  assert.ok(hips[1] < 0.35 && Math.abs(hips[0]) > 0.7, 'гоблин лежит на земле рядом с волком: ' + hips.map(v => v.toFixed(2)));
 });
 
 test('мечник верхом: каждый клип той же длины и с тем же числом кадров, что клип лошади', () => {
