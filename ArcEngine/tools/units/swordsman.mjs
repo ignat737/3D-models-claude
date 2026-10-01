@@ -2,9 +2,11 @@
 // helmet): conical nasal helmet, beard, mail shirt under a team-blue tabard with a gold cross,
 // team pauldrons, round shield in the left fist, arming sword in the right fist. Faces +Z
 // (the glTF front). Clips: "idle", "run", "attack" (looped) and "death" (once, stays down);
-// "ride" and "rideRun" (looped) seat him astride a horse: root at the saddle joint of horse.mjs
-// (Model3D.mount), feet in its stirrups.
-import { DEG, qmul, rig, rotX, rotY, rotZ, loopClip, onceClip, tween } from '../unit-glb.mjs';
+// the mounted set seats him astride a horse: root at the saddle joint of horse.mjs
+// (Model3D.mount), feet in its stirrups. "ride", "rideRun", "rideAttack", "rideRunAttack" (looped)
+// and "rideDeath" (once) pair with the horse's idle, run, attack, runAttack and death — same length.
+import { DEG, add, lerp, qconj, qmul, qrot, rig, rotX, rotY, rotZ, sub, loopClip, onceClip, tween } from '../unit-glb.mjs';
+import { deathPose as horseDeath, saddleFrame } from './horse.mjs';
 import { B, BODY, FIST_L, FIST_R, SIDES, armAngles, deathBody, face, idleBody, limbs, runBody } from './humanoid.mjs';
 
 const JOINTS = [
@@ -81,22 +83,69 @@ const arms = (p, pose) => Object.assign(armAngles(p, pose), { 'sword.rotation': 
 const SHIELD_AIM = rotY(-12 * DEG);   // facing forward, turned a little towards the body
 
 // Seated astride: the hips just above the root (the saddle top), thighs forward and out, shins
-// hanging along the flanks, the shield in front of the chest, the sword upright. lean — torso
-// forward, bob — the hips' spring against the horse's gait.
+// hanging along the flanks, the shield in front of the chest, the sword upright.
 const SEAT = 0.13;
-const ride = (t, lean, bob) => {
+const SEATED = { lz: 8, lx: -37, flx: -75, rz: -8, rx: -32, frx: -70, sx: -30 };
+const DEAD_ARMS = { lz: 55, lx: -10, flx: -25, rz: -58, rx: -2, frx: -10, sx: 90 };
+const mix = (a, b, k) => Object.fromEntries(Object.keys(a).map(key => [key, a[key] + (b[key] - a[key]) * k]));
+const nlerp = (a, b, k) => {
+  const sign = a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3] < 0 ? -1 : 1, q = lerp(a, b.map(v => v * sign), k);
+  return q.map(v => v / Math.hypot(...q));
+};
+const smooth = x => { const k = Math.min(1, Math.max(0, x)); return k * k * (3 - 2 * k); };
+
+// o: lean (torso forward, deg), ty (torso turn), bob (hips spring), arm — the arm angles.
+const ride = (t, o) => {
+  const lean = o.lean + (o.sway === undefined ? 1.5 : o.sway) * Math.sin(t);
   const pose = {
-    'hips.translation': [0, SEAT + bob, 0],
-    'torso.rotation': rotX((lean + 1.5 * Math.sin(t)) * DEG),
-    'head.rotation': qmul(rotY(5 * DEG * Math.sin(t)), rotX(-0.7 * lean * DEG)),
+    'hips.translation': [0, SEAT + (o.bob || 0), 0],
+    'torso.rotation': qmul(rotY((o.ty || 0) * DEG), rotX(lean * DEG)),
+    'head.rotation': qmul(rotY((o.look === undefined ? 5 * Math.sin(t) : o.look) * DEG), rotX(-0.7 * lean * DEG)),
   };
   for (const k of SIDES) {
     const side = k > 0 ? 'L' : 'R';
     pointJoint(pose, 'leg' + side, [0.65 * k, -0.35, 0.7]);
     pointJoint(pose, 'shin' + side, [0.12 * k, -1, -0.25]);
   }
-  Object.assign(arms({ lz: 8, lx: -35 - lean, flx: -75, rz: -8, rx: -30 - lean, frx: -70, sx: -30 }, pose));
-  return aimJoint(pose, 'shield', qmul(rotY(-15 * DEG), rotX(lean * DEG)));
+  arms(o.arm || { ...SEATED, lx: -35 - o.lean, rx: -30 - o.lean }, pose);
+  return aimJoint(pose, 'shield', qmul(rotY(-15 * DEG), rotX(o.lean * DEG)));
+};
+
+// Cut from the saddle: wind-up over the right shoulder (0.4), a cut across to the front left
+// (0.58), follow-through, guard. lean — the torso's forward lean all through.
+const mountedAttack = (t, lean, bob) => {
+  const g = { u: 0, rx: -30, rz: -8, frx: -70, sx: -30, ty: 0, tx: 0 };
+  const p = tween(t / (2 * Math.PI), [
+    g,
+    { u: 0.4, rx: -165, rz: -30, frx: -75, sx: 0, ty: -26, tx: -8 },
+    { u: 0.58, rx: -50, rz: -34, frx: -12, sx: 80, ty: 22, tx: 8 },
+    { u: 0.75, rx: -42, rz: -30, frx: -14, sx: 85, ty: 18, tx: 6 },
+    { ...g, u: 1 },
+  ]);
+  return ride(0, { lean: lean + p.tx, sway: 0, ty: p.ty, look: -0.7 * p.ty, bob, arm: { ...SEATED, lx: -35 - lean, rx: p.rx, rz: p.rz, frx: p.frx, sx: p.sx } });
+};
+
+// Thrown by the falling horse: sits through the buckle (u < 0.3), flies off over its back, lands
+// on his back on the ground beside it. The clip is in the saddle's frame, which rolls with the
+// horse, so the world path (hips position and turn) is converted into it every frame.
+const LAND = { p: [-1.25, 0.14, -0.45], q: rotX(-86 * DEG) };
+const rideDeath = (u) => {
+  const S = saddleFrame(horseDeath(u)), k = smooth((u - 0.3) / 0.45), inv = qconj(S.q);
+  const sitting = add(S.p, qrot(S.q, [0, SEAT, 0]));
+  const P = add(lerp(sitting, LAND.p, k), [0, 0.7 * Math.sin(Math.PI * k), 0]), Q = nlerp(S.q, LAND.q, k);
+  const seated = ride(0, { lean: 2, sway: 0, look: 0 });
+  const pose = {
+    'hips.translation': qrot(inv, sub(P, S.p)),
+    'hips.rotation': qmul(inv, Q),
+    'torso.rotation': rotX(-12 * k * DEG),
+    'head.rotation': rotX(10 * k * DEG),
+  };
+  for (const side of ['L', 'R']) {
+    pose['leg' + side + '.rotation'] = nlerp(seated['leg' + side + '.rotation'], rotX(-12 * DEG), k);
+    pose['shin' + side + '.rotation'] = nlerp(seated['shin' + side + '.rotation'], rotX(-12 * DEG), k);
+  }
+  arms(mix({ ...SEATED, lx: -37, rx: -32 }, DEAD_ARMS, k), pose);
+  return aimJoint(pose, 'shield', nlerp(qmul(rotY(-15 * DEG), rotX(2 * DEG)), qmul(worldOf(pose, J.hips).q, SHIELD_AIM), k));
 };
 
 const CLIPS = [
@@ -132,8 +181,11 @@ const CLIPS = [
     const pose = arms({ lz: 8 + 45 * fall, lx: -10, flx: -45 + 20 * fall, rz: -8 - 50 * fall, rx: -12 + 10 * b, frx: -40 + 30 * fall, sx: 75 + 15 * fall }, body);
     return aimJoint(pose, 'shield', qmul(worldOf(pose, J.hips).q, SHIELD_AIM));
   }),
-  loopClip('ride', 2.4, 12, t => ride(t, 2, 0.003 * Math.sin(t))),
-  loopClip('rideRun', 0.64, 16, t => ride(t, 14, 0.012 * Math.sin(2 * t))),
+  loopClip('ride', 2.4, 12, t => ride(t, { lean: 2, bob: 0.003 * Math.sin(t) })),
+  loopClip('rideRun', 0.64, 16, t => ride(t, { lean: 14, bob: 0.012 * Math.sin(2 * t) })),
+  loopClip('rideAttack', 0.9, 18, t => mountedAttack(t, 2, 0)),
+  loopClip('rideRunAttack', 1.28, 32, t => mountedAttack(t, 14, 0.012 * Math.sin(4 * t))),
+  onceClip('rideDeath', 1.8, 24, rideDeath),
 ];
 
 export default { name: 'swordsman', joints: JOINTS, palette: PALETTE, parts: PARTS, clips: CLIPS, preview: 'idle@0.6,attack@0.52' };

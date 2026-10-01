@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import { test } from 'node:test';
 import { IK_MISSES, UNITS, buildGlb, buildMesh, outOf } from '../tools/make-units.mjs';
 import { add, qconj, qrot, rig, sub } from '../tools/unit-glb.mjs';
+import { extentY } from '../tools/units/horse.mjs';
 
 function parseGlb(buf) {
   assert.equal(buf.toString('latin1', 0, 4), 'glTF');
@@ -57,7 +58,7 @@ for (const unit of UNITS) {
     assert.equal(gltf.accessors[skin.inverseBindMatrices].count, skin.joints.length);
     assert.deepEqual(gltf.animations.map(a => a.name), unit.clips.map(c => c.name));
     assert.deepEqual(gltf.animations.slice(0, 2).map(a => a.name), ['idle', 'run']);
-    if (unit.name !== 'horse') for (const need of ['attack', 'death']) assert.ok(gltf.animations.some(a => a.name === need), unit.name + ': ' + need);
+    for (const need of ['attack', 'death']) assert.ok(gltf.animations.some(a => a.name === need), unit.name + ': ' + need);
     for (const [i, anim] of gltf.animations.entries()) {
       if (!unit.clips[i].loop) continue;
       for (const s of anim.samplers) {
@@ -69,9 +70,9 @@ for (const unit of UNITS) {
 
   test(`${unit.name}: death заканчивается лёжа на земле`, (t) => {
     const death = unit.clips.find(c => c.name === 'death');
-    if (!death) return t.skip('у юнита нет клипа death');
     assert.equal(death.loop, false);
     const hips = death.tracks.get('hips.translation');
+    if (!hips) return t.skip('смерть лошади — отдельный тест');
     assert.ok(hips[hips.length - 1][1] < 0.25, 'таз у земли');
   });
 }
@@ -122,24 +123,90 @@ test('юниты: имена уникальны, у каждого поле prev
   }
 });
 
-test('лошадь: только idle и run, кость saddle над спиной, без всадника', () => {
-  const horse = UNITS.find(u => u.name === 'horse');
-  assert.deepEqual(horse.clips.map(c => c.name), ['idle', 'run']);
+const horseUnit = () => UNITS.find(u => u.name === 'horse');
+const swordsmanUnit = () => UNITS.find(u => u.name === 'swordsman');
+const poseAt = (clip, f) => Object.fromEntries([...clip.tracks].map(([k, v]) => [k, v[f]]));
+// Horse clip <-> rider clip: the same length and number of keys, played together.
+const PAIRS = [['idle', 'ride'], ['run', 'rideRun'], ['attack', 'rideAttack'], ['runAttack', 'rideRunAttack'], ['death', 'rideDeath']];
+
+test('лошадь: idle, run, attack, runAttack, death; кость saddle над спиной, без всадника', () => {
+  const horse = horseUnit();
+  assert.deepEqual(horse.clips.map(c => c.name), ['idle', 'run', 'attack', 'runAttack', 'death']);
+  assert.deepEqual(horse.clips.map(c => c.loop), [true, true, true, true, false]);
   const saddle = horse.joints.find(j => j.name === 'saddle');
   assert.ok(saddle && saddle.at[1] > 1.4 && Math.abs(saddle.at[0]) < 1e-9, 'сиденье по центру на высоте спины');
 });
 
-test('мечник: клипы ride и rideRun сажают его верхом, ноги по бокам от седла', () => {
-  const sw = UNITS.find(u => u.name === 'swordsman');
-  const { J, worldOf } = rig(sw.joints);
-  for (const name of ['ride', 'rideRun']) {
-    const clip = sw.clips.find(c => c.name === name);
-    assert.ok(clip && clip.loop, name);
+test('лошадь: на земле во всех кадрах живых клипов (кроме бега), смерть кончается лёжа на земле', () => {
+  const horse = horseUnit();
+  for (const name of ['idle', 'attack']) {
+    const clip = horse.clips.find(c => c.name === name);
     for (let f = 0; f < clip.times.length; f++) {
-      const pose = Object.fromEntries([...clip.tracks].map(([k, v]) => [k, v[f]]));
-      assert.ok(pose['hips.translation'][1] < 0.2, 'таз у седла');
-      assert.ok(Math.abs(worldOf(pose, J.shinL).p[0]) > 0.33, name + ': колено левой ноги снаружи бока лошади');
-      assert.ok(Math.abs(worldOf(pose, J.shinR).p[0]) > 0.33, name + ': колено правой ноги снаружи бока лошади');
+      const [low] = extentY(poseAt(clip, f));
+      assert.ok(Math.abs(low) < 0.01, `${name} кадр ${f}: копыта ${(low * 100).toFixed(1)} см от земли`);
     }
   }
+  const death = horse.clips.find(c => c.name === 'death');
+  for (let f = 0; f < death.times.length; f++) assert.ok(extentY(poseAt(death, f))[0] > -0.01, `death кадр ${f}: ушла под землю`);
+  const [low, high] = extentY(poseAt(death, death.times.length - 1));
+  assert.ok(Math.abs(low) < 0.01 && high < 1.05, 'лежит на боку: ' + high.toFixed(2));
+});
+
+test('мечник верхом: каждый клип той же длины и с тем же числом кадров, что клип лошади', () => {
+  const horse = horseUnit(), sw = swordsmanUnit();
+  for (const [h, r] of PAIRS) {
+    const a = horse.clips.find(c => c.name === h), b = sw.clips.find(c => c.name === r);
+    assert.ok(a && b, h + '/' + r);
+    assert.deepEqual(b.times, a.times, `${r} идёт вместе с ${h}`);
+    assert.equal(b.loop, a.loop);
+  }
+});
+
+test('мечник верхом: ноги по бокам от седла, пока он в седле', () => {
+  const { J, worldOf } = rig(swordsmanUnit().joints);
+  for (const name of ['ride', 'rideRun', 'rideAttack', 'rideRunAttack', 'rideDeath']) {
+    const clip = swordsmanUnit().clips.find(c => c.name === name);
+    assert.ok(clip, name);
+    const seated = clip.times.length - 1 + (name === 'rideDeath' ? -Math.round(clip.times.length * 0.7) : 0);
+    for (let f = 0; f < Math.min(seated + 1, clip.times.length); f++) {
+      const pose = poseAt(clip, f);
+      assert.ok(pose['hips.translation'][1] < 0.2, name + ' кадр ' + f + ': таз у седла');
+      for (const side of ['L', 'R']) assert.ok(Math.abs(worldOf(pose, J['shin' + side]).p[0]) > 0.33, `${name} кадр ${f}: колено ${side} снаружи бока лошади`);
+    }
+  }
+});
+
+// The sword of a rider, sampled every 3 cm, against the horse's boxes (neck, head, body, saddle)
+// under the paired horse clip: it must stay clear in every frame while he is in the saddle.
+test('мечник верхом: меч не проходит сквозь лошадь ни в одном кадре атаки и бега', () => {
+  const horse = horseUnit(), sw = swordsmanUnit();
+  const H = rig(horse.joints), R = rig(sw.joints);
+  const boxes = horse.parts.filter(p => p.s && !['hoof', 'coatDark'].includes(p.color) && horse.joints[p.joint].name !== 'saddle' || (p.s && p.color === 'leather' && horse.joints[p.joint].name === 'saddle'));
+  for (const [h, r] of PAIRS.filter(([h]) => h !== 'death')) {
+    const hc = horse.clips.find(c => c.name === h), rc = sw.clips.find(c => c.name === r);
+    for (let f = 0; f < hc.times.length; f++) {
+      const hp = poseAt(hc, f), rp = poseAt(rc, f), S = H.worldOf(hp, H.J.saddle), sword = R.worldOf(rp, R.J.sword);
+      for (let y = -0.1; y <= 0.85; y += 0.03) {
+        const local = add(sword.p, qrot(sword.q, [0, y, 0]));
+        const pt = add(S.p, qrot(S.q, local));
+        for (const b of boxes) {
+          const w = H.worldOf(hp, b.joint);
+          let rel = add(qrot(qconj(w.q), sub(pt, w.p)), horse.joints[b.joint].at);
+          if (b.q) { const pv = b.pivot || b.c; rel = add(pv, qrot(qconj(b.q), sub(rel, pv))); }
+          const depth = Math.min(...[0, 1, 2].map(k => b.s[k] / 2 + 0.02 - Math.abs(rel[k] - b.c[k])));
+          assert.ok(depth <= 0, `${r} кадр ${f}: меч в ${horse.joints[b.joint].name} (${b.color}) на ${(depth * 100).toFixed(1)} см`);
+        }
+      }
+    }
+  }
+});
+
+test('мечник верхом: после смерти лошади лежит на земле рядом с ней, не под ней', () => {
+  const horse = horseUnit(), sw = swordsmanUnit();
+  const H = rig(horse.joints);
+  const hc = horse.clips.find(c => c.name === 'death'), rc = sw.clips.find(c => c.name === 'rideDeath');
+  const last = hc.times.length - 1, S = H.worldOf(poseAt(hc, last), H.J.saddle), hips = poseAt(rc, last)['hips.translation'];
+  const world = add(S.p, qrot(S.q, hips));
+  assert.ok(world[1] < 0.3, 'таз у земли: ' + world[1].toFixed(2));
+  assert.ok(Math.abs(world[0]) > 0.9, 'в стороне от лошади: ' + world[0].toFixed(2));
 });
