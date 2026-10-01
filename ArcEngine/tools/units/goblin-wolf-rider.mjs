@@ -7,7 +7,7 @@
 import { DEG, add, lerp, qconj, qmul, qrot, rig, rotX, rotY, sub } from '../unit-glb.mjs';
 import { SIDES, armAngles } from './humanoid.mjs';
 import goblin from './goblin.mjs';
-import wolf, { deathPose } from './wolf.mjs';
+import wolf, { SCALE, deathPose } from './wolf.mjs';
 
 const N = wolf.joints.length;
 const BODY = wolf.joints.findIndex(j => j.name === 'body');
@@ -16,7 +16,7 @@ const HAND = 0.27 * 0.88;   // the goblin's forearm joint -> fist (goblin.mjs sc
 
 // The goblin's hips sit at HIPS (model space) on the wolf's back; every goblin joint and part moves
 // by SHIFT from its own coordinates.
-const HIPS = [0, 0.97, 0.03];
+const HIPS = [0, 0.97 * SCALE, 0.03 * SCALE];
 const SHIFT = sub(HIPS, goblin.joints[0].at);
 
 const JOINTS = [
@@ -62,8 +62,8 @@ const nlerp = (a, b, k) => {
 };
 const smooth = x => { const k = Math.min(1, Math.max(0, x)); return k * k * (3 - 2 * k); };
 
-const STRAP_GRIP = [0.10, 0.96, 0.20];   // the left fist on top of the harness strap
-const JAVELIN_GRIP = [-0.30, 1.05, 0.24];
+const STRAP_GRIP = [0.10, 0.96, 0.20].map(v => v * SCALE);   // the left fist on top of the harness strap
+const JAVELIN_GRIP = [-0.30, 1.05, 0.24].map(v => v * SCALE);
 const JAVELIN_AIM = lean => qmul(rotY(8 * DEG), rotX((50 + 0.4 * lean) * DEG));
 
 // Seated astride: lean — the torso's forward lean, look — a turn of the head (degrees).

@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import { IK_MISSES, UNITS, buildGlb, buildMesh, outOf } from '../tools/make-units.mjs';
 import { add, qconj, qrot, rig, sub } from '../tools/unit-glb.mjs';
 import { extentY } from '../tools/units/horse.mjs';
-import { extentY as wolfExtentY } from '../tools/units/wolf.mjs';
+import { SCALE, extentY as wolfExtentY } from '../tools/units/wolf.mjs';
 import { riderMinY } from '../tools/units/goblin-wolf-rider.mjs';
 
 function parseGlb(buf) {
@@ -187,7 +187,7 @@ test('гоблин на волке: клипы волка, оба набора �
         // Seated: his hips keep their place in the body's frame, so he rides with every bounce and pitch.
         const body = worldOf(pose, J.body), hips = worldOf(pose, J.rider_hips);
         const rel = qrot(qconj(body.q), sub(hips.p, body.p));
-        assert.ok(Math.abs(rel[0]) < 1e-6 && Math.abs(rel[1] - 0.35) < 0.02 && Math.abs(rel[2] - 0.03) < 1e-6, `${clip.name} кадр ${f}: таз ${rel.map(v => v.toFixed(3))}`);
+        assert.ok(Math.abs(rel[0]) < 1e-6 && Math.abs(rel[1] - 0.35 * SCALE) < 0.02 && Math.abs(rel[2] - 0.03 * SCALE) < 1e-6, `${clip.name} кадр ${f}: таз ${rel.map(v => v.toFixed(3))}`);
       } else {
         assert.ok(riderMinY(pose) > -0.01, `${clip.name} кадр ${f}: гоблин под землёй`);
       }
