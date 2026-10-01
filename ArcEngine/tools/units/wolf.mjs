@@ -1,5 +1,5 @@
-// Wolf: a low-poly wolf for a strategy game, 0.85 m at the shoulders, 1.05 m to the ears, 1.5 m
-// nose to the root of the tail. Grey coat with a dark mantle along the back, pale legs and
+// Wolf: a low-poly wolf for a strategy game, 0.98 m at the shoulders, 1.2 m to the ears, 1.7 m
+// nose to the root of the tail (the base design 0.85 / 1.05 / 1.5 m times SCALE). Grey coat with a dark mantle along the back, pale legs and
 // chest, amber eyes, white fangs, a team-coloured collar and shoulder strap. Faces +Z (the glTF front), +X is its
 // left. An own skeleton like the horse's (`body`, `neck`, `head`, `jaw`, `tail`, four legs of two
 // joints). Clips: "idle" (breathes, looks around), "run" (a lope) — looped; "attack" (crouches,
@@ -7,7 +7,12 @@
 import { DEG, add, loopClip, onceClip, qmul, qrot, rig, rotX, rotY, rotZ, sub, tween } from '../unit-glb.mjs';
 import { SIDES } from './humanoid.mjs';
 
-const JOINTS = [
+// Everything below is drawn at base size and scaled once by SCALE: joints, parts and the body
+// translations of the clips (angles are unchanged).
+export const SCALE = 1.15;
+const scaled = v => v.map(x => x * SCALE);
+
+const BASE_JOINTS = [
   { name: 'body', at: [0, 0.62, 0], parent: -1 },
   { name: 'neck', at: [0, 0.80, 0.40], parent: 0 },
   { name: 'head', at: [0, 0.82, 0.62], parent: 1 },
@@ -22,7 +27,7 @@ const JOINTS = [
   { name: 'legHR', at: [-0.10, 0.61, -0.32], parent: 0 },
   { name: 'shinHR', at: [-0.10, 0.32, -0.32], parent: 11 },
 ];
-const J = Object.fromEntries(JOINTS.map((j, i) => [j.name, i]));
+const J = Object.fromEntries(BASE_JOINTS.map((j, i) => [j.name, i]));
 
 // "team" and "teamDark" are the faction colours, the same texels as on the infantry.
 const PALETTE = [
@@ -57,7 +62,7 @@ const legs = SIDES.flatMap(k => [true, false].flatMap((front) => {
   ];
 }));
 
-const PARTS = [
+const BASE_PARTS = [
   ...TORSO.map(t => ({ ...t, joint: J.body, color: 'coat' })),
   ...TORSO.map(mantle),
   { c: [0, 0.60, 0.447], s: [0.17, 0.24, 0.012], joint: J.body, color: 'cream' },
@@ -87,6 +92,13 @@ const PARTS = [
   ...legs,
 ];
 
+const JOINTS = BASE_JOINTS.map(j => ({ ...j, at: scaled(j.at) }));
+const PARTS = BASE_PARTS.map(p => ({
+  ...p, c: scaled(p.c),
+  ...(p.pivot && { pivot: scaled(p.pivot) }),
+  ...(p.s ? { s: scaled(p.s) } : { h: p.h * SCALE, r: p.r.map(r => r * SCALE) }),
+}));
+
 const { worldOf } = rig(JOINTS);
 const smooth = x => { const k = Math.min(1, Math.max(0, x)); return k * k * (3 - 2 * k); };
 
@@ -110,7 +122,7 @@ export function extentY(pose) {
 
 // Body at height y, then lowered or lifted so that the lowest point is exactly on the ground.
 function grounded(pose, x = 0, z = 0) {
-  pose['body.translation'] = [x, 0.62, z];
+  pose['body.translation'] = [x, 0.62 * SCALE, z];
   pose['body.translation'][1] -= extentY(pose)[0];
   return pose;
 }
@@ -127,7 +139,7 @@ const legs4 = (pose, { ff = 0, fs = 0, hf = 0, hs = 0, fr = 0 }) => {
 
 // Idle: breathing, the head sweeps slowly from side to side, the tail sways.
 const idle = t => legs4({
-  'body.translation': [0, 0.62 + 0.005 * Math.sin(t), 0],
+  'body.translation': scaled([0, 0.62 + 0.005 * Math.sin(t), 0]),
   'neck.rotation': qmul(rotY(14 * DEG * Math.sin(t)), rotX((4 + 3 * Math.sin(t - 1)) * DEG)),
   'head.rotation': rotX((2 * Math.sin(t + 0.6)) * DEG),
   'jaw.rotation': rotX((2 + 2 * Math.sin(t + 1.5)) * DEG),
@@ -144,7 +156,7 @@ const run = (t) => {
   const fl = swing(t, 0, 42, 8), fr = swing(t, -0.45, 42, 8);
   const hl = swing(t, Math.PI - 0.2, 38, -6), hr = swing(t, Math.PI + 0.25, 38, -6);
   return {
-    'body.translation': [0, 0.62 + 0.06 * Math.abs(Math.sin(t + 0.4)), 0],
+    'body.translation': scaled([0, 0.62 + 0.06 * Math.abs(Math.sin(t + 0.4)), 0]),
     'body.rotation': rotX((-6 * Math.sin(t + 0.4)) * DEG),
     'neck.rotation': rotX((-8 + 6 * Math.sin(t - 0.8)) * DEG),
     'head.rotation': rotX((-4 + 5 * Math.sin(t - 1.4)) * DEG),
@@ -170,7 +182,7 @@ const attack = (t) => {
     { ...g, u: 1 },
   ]);
   return legs4({
-    'body.translation': [0, 0.62 + p.dy, p.dz],
+    'body.translation': scaled([0, 0.62 + p.dy, p.dz]),
     'body.rotation': rotX(-p.pitch * DEG),
     'neck.rotation': rotX(p.neck * DEG),
     'head.rotation': rotX(p.head * DEG),
@@ -204,5 +216,5 @@ const CLIPS = [
 export default {
   name: 'wolf', joints: JOINTS, palette: PALETTE, parts: PARTS, clips: CLIPS,
   preview: 'idle@0.6,run@0.12,attack@0.4,death@1.1',
-  previewGap: 42,
+  previewGap: 48,
 };
