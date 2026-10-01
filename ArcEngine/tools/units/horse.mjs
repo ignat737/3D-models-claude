@@ -59,7 +59,7 @@ const legs = SIDES.flatMap((k) => [true, false].flatMap((front) => {
 
 const PARTS = [
   // Body: belly, chest and rump as three boxes.
-  { c: [0, 1.13, -0.05], s: [0.50, 0.58, 0.80], joint: J.body, color: 'coat' },
+  { c: [0, 1.13, -0.05], s: [0.44, 0.58, 0.80], joint: J.body, color: 'coat' },
   { c: [0, 1.17, 0.42], s: [0.49, 0.62, 0.30], joint: J.body, color: 'coat' },
   { c: [0, 1.17, -0.50], s: [0.48, 0.60, 0.34], joint: J.body, color: 'coat' },
   // Neck with a mane along its back, head with brow band, blaze, nostrils, eyes and ears.
@@ -78,9 +78,9 @@ const PARTS = [
   // Tail: a tapering hank hanging from the rump, swept back a little.
   { c: [0, 1.025, -0.70], h: 0.55, r: [0.03, 0.07], n: 5, joint: J.tail, q: rotX(14 * DEG), pivot: [0, 1.30, -0.64], color: 'mane' },
   ...legs,
-  // Saddle: team blanket with a gold stripe, leather seat, pommel, cantle.
-  { c: [0, 1.40, -0.12], s: [0.56, 0.20, 0.50], joint: J.saddle, color: 'team' },
-  ...SIDES.map(k => ({ c: [0.2835 * k, 1.33, -0.12], s: [0.007, 0.04, 0.50], joint: J.saddle, color: 'trim' })),
+  // Saddle: team blanket (its edges at the outer edge of the hind thighs, 0.27 m) with a gold stripe, leather seat, pommel, cantle.
+  { c: [0, 1.40, -0.12], s: [0.526, 0.20, 0.50], joint: J.saddle, color: 'team' },
+  ...SIDES.map(k => ({ c: [0.2665 * k, 1.33, -0.12], s: [0.007, 0.04, 0.50], joint: J.saddle, color: 'trim' })),
   { c: [0, 1.535, -0.12], s: [0.30, 0.07, 0.40], joint: J.saddle, color: 'leather' },
   { c: [0, 1.60, 0.10], s: [0.14, 0.12, 0.05], joint: J.saddle, color: 'leather' },
   { c: [0, 1.60, -0.34], s: [0.24, 0.12, 0.06], joint: J.saddle, color: 'leather' },
