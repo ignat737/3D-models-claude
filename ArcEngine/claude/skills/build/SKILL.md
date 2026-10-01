@@ -22,6 +22,8 @@ node tools/make-sounds.mjs             # regenerate assets/sounds/*.wav (the sam
 node tools/make-sounds.mjs --check     # exit 1 if a file differs from the generator
 node tools/make-units.mjs              # regenerate 3D-models/*.glb (strategy units, tools/units/*.mjs)
 node tools/make-units.mjs --check      # exit 1 if a unit file differs from its generator
+node tools/make-buildings.mjs          # regenerate 3D-models/3D-models-buildings/*.glb (static buildings)
+node tools/make-buildings.mjs --check  # exit 1 if a building file differs from its generator
 node tools/unit-preview.mjs swordsman  # picture of a unit in the scene (skill units / headless)
 node tools/browser.mjs --lint --shot=out.png   # the game in headless Chrome (skill headless)
 ```
