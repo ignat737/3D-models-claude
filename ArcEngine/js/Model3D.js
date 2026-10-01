@@ -1,7 +1,7 @@
 // Model3D.js — models: binary FBX (7.x: Blender, Maya, Unity) -> Babylon meshes.
 // Location objects (Objects.js) are placed by Location3D: load(url, scene) -> build() ->
 // World3D.addObject. Models live in assets/models/. A .glb / .gltf (skeleton, animation
-// clips, textures) goes through the same three calls into Gltf3D.js; clips(root) — its clips.
+// clips, textures) goes through the same three calls into Gltf3D.js; clips(root) — its clips, mount(rider, horse, joint) seats one on a joint of another.
 //
 // FBX, this file's own parser.
 // Taken: Model nodes with geometry — transform (Lcl Translation/Rotation/Scaling,
@@ -83,6 +83,16 @@ const Model3D = {
     // animations, null for FBX.
     clips(root) {
         return Gltf3D.clips(root);
+    },
+
+    // Seat a built GLB model on a joint of another (a rider on a saddle): Gltf3D.mount; dismount
+    // takes it off, staying in place. false for FBX or an unknown joint.
+    mount(rider, mount, joint) {
+        return Gltf3D.mount(rider, mount, joint);
+    },
+
+    dismount(rider) {
+        return Gltf3D.dismount(rider);
     },
 
     // Remove a built model from the scene together with its materials

@@ -105,7 +105,7 @@ js/               код игры — классические скрипты:
   Terrain3D.js    земля: поле высот из шума, сетка + кольцо за краем, heightAt/tiltAt
   Model3D.js      модели: бинарный FBX -> меши Babylon (load с кэшем, build, dispose); 1 см = 1 px; .glb уходит в Gltf3D
   Gltf3D.js       модели glTF/GLB: скелет, текстуры, PBR -> StandardMaterial под toon; Clips3D — клипы анимации
-                  (Model3D.clips(root).play('run') с плавным переходом)
+                  (Model3D.clips(root).play('run') с плавным переходом; Model3D.mount(всадник, лошадь, 'saddle') — посадить модель на кость другой)
   Instances3D.js  много копий одной модели одним draw call (thin instances): World3D.addInstances ->
                   set/setAll/flush/dispose; тени, toon, контур и обводка — как у addObject
   Location3D.js   локация: View3D + Terrain3D + текстура земли (LOCATION_GROUND) + объекты (addObject/placeObject,
@@ -128,7 +128,7 @@ tools/            dev-server.mjs, build.mjs, asset-scan.mjs, zip.mjs, check.mjs 
                   make-character.mjs, make-sounds.mjs; make-units.mjs + unit-glb.mjs + units/*.mjs —
                   генератор low-poly юнитов для стратегии в 3D-models/; browser.mjs — игра в headless
                   Chrome без панели браузера (скриншот, eval, lint); unit-preview.mjs — снимок юнита в сцене
-3D-models/        модели юнитов (GLB: один меш, один материал-палитра, клипы idle/run/attack/death),
+3D-models/        модели юнитов (GLB: один меш, один материал-палитра, клипы idle/run/attack/death; лошадь — idle/run и кость saddle),
                   генерируются tools/make-units.mjs; в игру — копией в assets/models/ (README.md)
 tsconfig.json     проверка типов игры; globals.d.ts — window.app, material.arcToon, записи объектов
 tests/            *.test.mjs (node --test): Store, heightAt, сканер ассетов, запись редактора, звук,

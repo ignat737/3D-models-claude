@@ -12,12 +12,15 @@
 // Colour textures are loaded WITHOUT sRGB buffers: with them the GPU decodes texels to linear,
 // which is right for PBR but makes a StandardMaterial (gamma space) render the texture too dark.
 // CLIPS: glTF animations by name — Clips3D: play('run') cross-fades from the current clip.
+// MOUNT: Model3D.mount(rider, horse, 'saddle') seats one built model on a joint (bone) of another;
+// the rider keeps its own clips and follows the joint through the mount's animation.
 
 /** @satisfies {Record<string, any>} */
 const Gltf3D = {
     UNITS: 100,              // glTF meters -> world px (1 cm = 1 px, like FBX)
     _cache: new Map(),       // scene uid + url -> Promise<model>: the file is loaded once per scene
     _clips: new WeakMap(),   // model root -> Clips3D
+    _joints: new WeakMap(),  // model root -> Map(joint name -> TransformNode)
 
     is(url) {
         return /\.(glb|gltf)(\?|$)/i.test(String(url));
@@ -55,6 +58,10 @@ const Gltf3D = {
         const inst = model.container.instantiateModelsToScene((n) => name + '/' + n, false, { doNotInstantiate: true });
         for (const node of inst.rootNodes) node.parent = fit;
 
+        const joints = new Map(), prefix = name + '/';
+        for (const node of fit.getChildTransformNodes(false)) joints.set(node.name.startsWith(prefix) ? node.name.slice(prefix.length) : node.name, node);
+        this._joints.set(root, joints);
+
         const mats = new Map();
         for (const mesh of root.getChildMeshes(false)) {
             if (!mesh.material) continue;
@@ -73,6 +80,35 @@ const Gltf3D = {
 
     clips(root) {
         return (root && this._clips.get(root)) || null;
+    },
+
+    // Seat the model `rider` on the joint named `joint` of the model `mount` (both from build).
+    // The joint lives inside the mount's meters-to-px node, so the rider's root gets the inverse
+    // scale and turn: its origin sits at the joint, its nose looks where the mount's does, its
+    // size is the mount's scale (set the scale on the mount only). false — no such joint.
+    // A mount's dispose takes its rider with it: dismount first to keep it.
+    mount(rider, mount, joint) {
+        const node = (this._joints.get(mount) || new Map()).get(joint);
+        if (!rider || !node) return false;
+        rider.parent = node;
+        rider.position.setAll(0);
+        rider.rotationQuaternion = null;
+        rider.rotation.set(0, -Math.PI / 2, 0);
+        rider.scaling.setAll(1 / Gltf3D.UNITS);
+        return true;
+    },
+
+    // Take a seated model off: it stays where it is in the world, the parent link is gone.
+    dismount(rider) {
+        if (!rider || !rider.parent) return false;
+        const scale = new BABYLON.Vector3(), rot = new BABYLON.Quaternion(), pos = new BABYLON.Vector3();
+        rider.computeWorldMatrix(true).decompose(scale, rot, pos);
+        rider.parent = null;
+        rider.position.copyFrom(pos);
+        rider.scaling.copyFrom(scale);
+        rider.rotationQuaternion = null;
+        rider.rotation.copyFrom(rot.toEulerAngles());
+        return true;
     },
 
     // glTF material (PBR) -> StandardMaterial for the toon shader.

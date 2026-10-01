@@ -7,6 +7,7 @@
 //   node tools/unit-preview.mjs swordsman --pose=run@0.16,death@1.3 --out=shot.png
 //   node tools/unit-preview.mjs swordsman --near         # close-up of the first pose (details)
 //   node tools/unit-preview.mjs archer --heading=90      # every unit turned: 90 — seen from its left side
+//   node tools/unit-preview.mjs horse --rider=swordsman  # the horse with a swordsman in the saddle
 //
 // --pose: clip@seconds, one unit per pose, side by side (default: the unit's `preview` field).
 // --squad: 30 units in 5 ranks, clips idle/run/attack mixed, from an RTS camera height.
@@ -18,39 +19,52 @@ import { UNITS, buildGlb, outOf } from './make-units.mjs';
 
 // Runs in the page. Units stand south of the kit's farmer and mill, the view is framed from the
 // terrain height there: absolute heights would put the eye inside a hill.
-function placeScript(file, poses, mode, heading) {
+function placeScript(file, poses, mode, heading, gap, riderFile) {
   return `
 const view = app.location.view, scene = view.scene, T = app.location.terrain;
 const model = await Model3D.load(${JSON.stringify(file)}, scene);
+const riderModel = ${JSON.stringify(riderFile)} ? await Model3D.load(${JSON.stringify(riderFile)}, scene) : null;
 const units = [];
+const freeze = (m, clip, sec) => {
+  const c = Model3D.clips(m);
+  if (!c.play(clip, { blend: 0 })) throw new Error('у модели нет клипа ' + clip + ': ' + c.names().join(', '));
+  c._tick(1);
+  const g = c.tracks.get(clip).group;
+  g.pause();
+  g.goToFrame(Math.min(sec * 60, g.to));
+};
 const add = (x, y, heading, clip, sec) => {
   const u = Model3D.build(model, scene, { name: 'preview' + units.length });
   World3D.addObject(view, u, 'actor');
   u.position.set(x, T.heightAt(x, y), y);
   u.scaling.setAll(0.25);
   u.rotation.y = heading;
-  const c = Model3D.clips(u);
-  if (!c.play(clip, { blend: 0 })) throw new Error('у модели нет клипа ' + clip + ': ' + c.names().join(', '));
-  c._tick(1);
-  const g = c.tracks.get(clip).group;
-  g.pause();
-  g.goToFrame(Math.min(sec * 60, g.to));
+  freeze(u, clip, sec);
+  if (riderModel) {
+    // The mount's idle / run pair with the rider's seated clips.
+    const r = Model3D.build(riderModel, scene, { name: 'rider' + units.length });
+    World3D.addObject(view, r, 'actor');
+    if (!Model3D.mount(r, u, 'saddle')) throw new Error('у модели нет кости saddle');
+    freeze(r, clip === 'run' ? 'rideRun' : 'ride', sec);
+  }
   units.push(u);
 };
-const poses = ${JSON.stringify(poses)}, mode = ${JSON.stringify(mode)}, heading = ${JSON.stringify(heading)};
+const poses = ${JSON.stringify(poses)}, mode = ${JSON.stringify(mode)}, heading = ${JSON.stringify(heading)}, gap = ${JSON.stringify(gap)};
 let pose;
 if (mode === 'squad') {
-  const clips = ['idle', 'run', 'attack'];
+  // Ranks and files scale with the unit's length (gap / 28: 1 for a human).
+  const g = gap / 28, rank = 16 * (1 + (g - 1) * 1.3), file = 15 * g, f = Math.pow(g, 0.9);
+  const clips = ['idle', 'run', 'attack'].filter(c => model.clips.includes(c));
   for (let r = 0; r < 5; r++) for (let k = 0; k < 6; k++) {
-    add(960 + r * 16 + (k % 2) * 4, 1020 + k * 15, Math.PI * 0.9, clips[(r + k) % 3], ((r * 7 + k * 3) % 10) / 10 * 0.6);
+    add(960 + r * rank + (k % 2) * 4 * g, 1020 + k * file, Math.PI * 0.9, clips[(r + k) % clips.length], ((r * 7 + k * 3) % 10) / 10 * 0.6);
   }
-  const h = T.heightAt(1000, 1060);
-  pose = { eye: [870, 1060, h + 160], target: [1000, 1060, h] };
+  const cx = 960 + 2 * rank + 2 * g, cy = 1020 + 2.5 * file, h = T.heightAt(cx, cy);
+  pose = { eye: [cx - 130 * f, cy, h + 160 * f], target: [cx, cy, h] };
 } else {
   // heading: the camera looks along +X, a unit at rotation PI faces it; +90° shows its left side.
-  poses.forEach((p, i) => add(1000 + 6 * i, 1130 + 28 * i, heading === null ? Math.PI * (i % 2 ? 0.95 : 1.12) : Math.PI + heading * Math.PI / 180, p.clip, p.sec));
-  const cx = 1000 + 3 * (poses.length - 1), cy = 1130 + 14 * (poses.length - 1), h = T.heightAt(cx, cy);
-  const k = mode === 'near' ? 0.55 : Math.max(1.3, poses.length * 0.65);
+  poses.forEach((p, i) => add(1000 + 6 * i, 1130 + gap * i, heading === null ? Math.PI * (i % 2 ? 0.95 : 1.12) : Math.PI + heading * Math.PI / 180, p.clip, p.sec));
+  const cx = 1000 + 3 * (poses.length - 1), cy = 1130 + gap / 2 * (poses.length - 1), h = T.heightAt(cx, cy);
+  const k = mode === 'near' ? 0.55 * Math.pow(gap / 28, 0.8) : Math.max(1.3, poses.length * 0.65 * Math.sqrt(gap / 28));
   pose = { eye: [cx - 58 * k, cy - 16 * k, h + 22 + 12 * k], target: [cx, cy, h + (mode === 'near' ? 30 : 20)] };
 }
 const meshes = units.flatMap(u => u.getChildMeshes());
@@ -76,12 +90,18 @@ if (process.argv[1] && path.resolve(process.argv[1]) === url.fileURLToPath(impor
     console.error(`${path.relative(ROOT, file)} не совпадает с генератором: сначала node tools/make-units.mjs ${unit.name}`);
     process.exit(1);
   }
+  const riderUnit = arg('rider') ? UNITS.find(u => u.name === arg('rider')) : null;
+  if (arg('rider') && !riderUnit) {
+    console.error(`Нет юнита-всадника ${arg('rider')}. Есть: ${UNITS.map(u => u.name).join(', ')}`);
+    process.exit(1);
+  }
+  const riderFile = riderUnit ? path.relative(ROOT, outOf(riderUnit)).split(path.sep).join('/') : null;
   const mode = process.argv.includes('--squad') ? 'squad' : process.argv.includes('--near') ? 'near' : 'row';
   const poses = (arg('pose') || (mode === 'near' ? 'idle@0.6' : unit.preview || 'idle@0.6,attack@0.5')).split(',').map((s) => {
     const [clip, sec] = s.split('@');
     return { clip, sec: Number(sec) || 0 };
   });
-  const out = path.resolve(arg('out') || path.join(ROOT, '3D-models', 'previews', unit.name + (mode === 'squad' ? '-squad' : mode === 'near' ? '-near' : '') + '.png'));
+  const out = path.resolve(arg('out') || path.join(ROOT, '3D-models', 'previews', unit.name + (riderUnit ? '-' + riderUnit.name : '') + (mode === 'squad' ? '-squad' : mode === 'near' ? '-near' : '') + '.png'));
   let failed = false;
   const page = await openGame().catch((e) => {
     console.error(String(e && e.message || e));
@@ -90,7 +110,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === url.fileURLToPath(impor
   try {
     const rel = path.relative(ROOT, file).split(path.sep).join('/');
     const heading = arg('heading') === '' ? null : Number(arg('heading'));
-    const info = await page.eval(placeScript(rel, poses, mode, heading));
+    const info = await page.eval(placeScript(rel, poses, mode, heading, unit.previewGap || 28, riderFile));
     if (info.clamped) console.log('  камера поднята над землёй (Debug3D.hold clamped): кадр может быть не тем');
     await page.shot(out);
     const findings = await lint(page);

@@ -50,12 +50,14 @@ for (const unit of UNITS) {
     assert.ok(Math.abs(gltf.accessors[p.attributes.POSITION].min[1]) < 1e-6);
   });
 
-  test(`${unit.name}: скелет и клипы idle/run/attack/death, петли без шва`, () => {
+  test(`${unit.name}: скелет и клипы файла = клипы генератора, idle и run первыми, петли без шва`, () => {
     const { gltf, bin } = parseGlb(buildGlb(unit));
     const skin = gltf.skins[0];
     assert.equal(skin.joints.length, unit.joints.length);
     assert.equal(gltf.accessors[skin.inverseBindMatrices].count, skin.joints.length);
-    assert.deepEqual(gltf.animations.map(a => a.name), ['idle', 'run', 'attack', 'death']);
+    assert.deepEqual(gltf.animations.map(a => a.name), unit.clips.map(c => c.name));
+    assert.deepEqual(gltf.animations.slice(0, 2).map(a => a.name), ['idle', 'run']);
+    if (unit.name !== 'horse') for (const need of ['attack', 'death']) assert.ok(gltf.animations.some(a => a.name === need), unit.name + ': ' + need);
     for (const [i, anim] of gltf.animations.entries()) {
       if (!unit.clips[i].loop) continue;
       for (const s of anim.samplers) {
@@ -65,8 +67,9 @@ for (const unit of UNITS) {
     }
   });
 
-  test(`${unit.name}: death заканчивается лёжа на земле`, () => {
+  test(`${unit.name}: death заканчивается лёжа на земле`, (t) => {
     const death = unit.clips.find(c => c.name === 'death');
+    if (!death) return t.skip('у юнита нет клипа death');
     assert.equal(death.loop, false);
     const hips = death.tracks.get('hips.translation');
     assert.ok(hips[hips.length - 1][1] < 0.25, 'таз у земли');
@@ -116,5 +119,27 @@ test('юниты: имена уникальны, у каждого поле prev
   assert.equal(new Set(UNITS.map(u => u.name)).size, UNITS.length);
   for (const unit of UNITS) {
     for (const p of unit.preview.split(',')) assert.ok(unit.clips.some(c => c.name === p.split('@')[0]), unit.name + ': ' + p);
+  }
+});
+
+test('лошадь: только idle и run, кость saddle над спиной, без всадника', () => {
+  const horse = UNITS.find(u => u.name === 'horse');
+  assert.deepEqual(horse.clips.map(c => c.name), ['idle', 'run']);
+  const saddle = horse.joints.find(j => j.name === 'saddle');
+  assert.ok(saddle && saddle.at[1] > 1.4 && Math.abs(saddle.at[0]) < 1e-9, 'сиденье по центру на высоте спины');
+});
+
+test('мечник: клипы ride и rideRun сажают его верхом, ноги по бокам от седла', () => {
+  const sw = UNITS.find(u => u.name === 'swordsman');
+  const { J, worldOf } = rig(sw.joints);
+  for (const name of ['ride', 'rideRun']) {
+    const clip = sw.clips.find(c => c.name === name);
+    assert.ok(clip && clip.loop, name);
+    for (let f = 0; f < clip.times.length; f++) {
+      const pose = Object.fromEntries([...clip.tracks].map(([k, v]) => [k, v[f]]));
+      assert.ok(pose['hips.translation'][1] < 0.2, 'таз у седла');
+      assert.ok(Math.abs(worldOf(pose, J.shinL).p[0]) > 0.33, name + ': колено левой ноги снаружи бока лошади');
+      assert.ok(Math.abs(worldOf(pose, J.shinR).p[0]) > 0.33, name + ': колено правой ноги снаружи бока лошади');
+    }
   }
 });

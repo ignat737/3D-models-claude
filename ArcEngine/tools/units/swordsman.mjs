@@ -1,7 +1,9 @@
 // Swordsman: a low-poly medieval foot soldier for a strategy game, 1.75 m tall (1.89 with the
 // helmet): conical nasal helmet, beard, mail shirt under a team-blue tabard with a gold cross,
 // team pauldrons, round shield in the left fist, arming sword in the right fist. Faces +Z
-// (the glTF front). Clips: "idle", "run", "attack" (looped) and "death" (once, stays down).
+// (the glTF front). Clips: "idle", "run", "attack" (looped) and "death" (once, stays down);
+// "ride" and "rideRun" (looped) seat him astride a horse: root at the saddle joint of horse.mjs
+// (Model3D.mount), feet in its stirrups.
 import { DEG, qmul, rig, rotX, rotY, rotZ, loopClip, onceClip, tween } from '../unit-glb.mjs';
 import { B, BODY, FIST_L, FIST_R, SIDES, armAngles, deathBody, face, idleBody, limbs, runBody } from './humanoid.mjs';
 
@@ -10,7 +12,7 @@ const JOINTS = [
   { name: 'sword', at: FIST_R, parent: B.foreR },
   { name: 'shield', at: FIST_L, parent: B.foreL },   // centre grip in the left fist
 ];
-const { J, worldOf, aimJoint } = rig(JOINTS);
+const { J, worldOf, aimJoint, pointJoint } = rig(JOINTS);
 
 // "team" and "teamDark" are the faction colours: recolour those two texels for another player.
 const PALETTE = [
@@ -78,6 +80,25 @@ const PARTS = [
 const arms = (p, pose) => Object.assign(armAngles(p, pose), { 'sword.rotation': rotX(p.sx * DEG) });
 const SHIELD_AIM = rotY(-12 * DEG);   // facing forward, turned a little towards the body
 
+// Seated astride: the hips just above the root (the saddle top), thighs forward and out, shins
+// hanging along the flanks, the shield in front of the chest, the sword upright. lean — torso
+// forward, bob — the hips' spring against the horse's gait.
+const SEAT = 0.13;
+const ride = (t, lean, bob) => {
+  const pose = {
+    'hips.translation': [0, SEAT + bob, 0],
+    'torso.rotation': rotX((lean + 1.5 * Math.sin(t)) * DEG),
+    'head.rotation': qmul(rotY(5 * DEG * Math.sin(t)), rotX(-0.7 * lean * DEG)),
+  };
+  for (const k of SIDES) {
+    const side = k > 0 ? 'L' : 'R';
+    pointJoint(pose, 'leg' + side, [0.65 * k, -0.35, 0.7]);
+    pointJoint(pose, 'shin' + side, [0.12 * k, -1, -0.25]);
+  }
+  Object.assign(arms({ lz: 8, lx: -35 - lean, flx: -75, rz: -8, rx: -30 - lean, frx: -70, sx: -30 }, pose));
+  return aimJoint(pose, 'shield', qmul(rotY(-15 * DEG), rotX(lean * DEG)));
+};
+
 const CLIPS = [
   // Low guard: sword tip down in front, shield by the left hip, a slow look around.
   loopClip('idle', 2.4, 12, t => aimJoint(arms({ lz: 8, lx: -10 - 2 * Math.sin(t), flx: -45, rz: -8, rx: -12 + 1.5 * Math.sin(t), frx: -40, sx: 75 }, idleBody(t)), 'shield', SHIELD_AIM)),
@@ -111,6 +132,8 @@ const CLIPS = [
     const pose = arms({ lz: 8 + 45 * fall, lx: -10, flx: -45 + 20 * fall, rz: -8 - 50 * fall, rx: -12 + 10 * b, frx: -40 + 30 * fall, sx: 75 + 15 * fall }, body);
     return aimJoint(pose, 'shield', qmul(worldOf(pose, J.hips).q, SHIELD_AIM));
   }),
+  loopClip('ride', 2.4, 12, t => ride(t, 2, 0.003 * Math.sin(t))),
+  loopClip('rideRun', 0.64, 16, t => ride(t, 14, 0.012 * Math.sin(2 * t))),
 ];
 
 export default { name: 'swordsman', joints: JOINTS, palette: PALETTE, parts: PARTS, clips: CLIPS, preview: 'idle@0.6,attack@0.52' };
