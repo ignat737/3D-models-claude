@@ -20,7 +20,7 @@ main.js: World3D.init(canvas) -> new Location3D() -> new CameraController(view) 
 | `World3D.js` | `World3D`: `init(canvas)`, `renderFrame()`, `createView(opts)`, `cfg()` (all render constants), `applyRenderConstants(view)`, `addObject/removeObject`, ink edges (`inkMesh`, `InkSkin` — lines on the bones of a skinned mesh), outline (`outlineAdd/Remove`, fog tint `outlineFog`, `fogFactor`), `sunDirection()`, `hexColor3()`. `ArcToonPlugin` + `World3D.toon` (the `ArcToon` object). `View3D`: scene, camera, light, shadows, `pointerToGround`, `projectToScreen`, `dispose` |
 | `Terrain3D.js` | height field from noise, grid `[0..W]×[0..H]`, ground ring beyond the edge, `heightAt`, `tiltAt`, `setGroundImage`, `applyTileSize` |
 | `Location3D.js` | location = `View3D` + `Terrain3D` + ground texture (`GROUNDS`) + objects (`opts.objects` = `LOCATION_OBJECTS`); `ready` (promise: ground, models, shaders), `buildTerrain()` (objects settle on the new ground), `loadGround()`, `objects` (`{ def, mesh, error, loaded }`), `addObject(def)`, `placeObject(rec)`, `removeObject(rec)`, `update(dt)` (every frame: `spinPart` per `def.anim`, `playClip` per `def.clip`) |
-| `Model3D.js` | binary FBX -> meshes: `load(url)` (parse with cache), `build(model, scene, { name })` (root without geometry, parts with `MultiMaterial`; a part mesh has `metadata = { part, pivot, axes }` — FBX object name, its origin and unit local axes in file coordinates), `dispose(view, root)` (with materials). 1 cm in the file = 1 px, the origin comes from the file. A `.glb` / `.gltf` url goes through the same `load(url, scene)` / `build` / `dispose` into `Gltf3D`; `clips(root)` — its `Clips3D` (null for FBX) |
+| `Model3D.js` | binary FBX -> meshes: `load(url)` (parse with cache), `build(model, scene, { name })` (root without geometry, parts with `MultiMaterial`; a part mesh has `metadata = { part, pivot, axes }` — FBX object name, its origin and unit local axes in file coordinates), `dispose(view, root)` (with materials). 1 cm in the file = 1 px, the origin comes from the file. A `.glb` / `.gltf` url goes through the same `load(url, scene)` / `build` / `dispose` into `Gltf3D`; `clips(root)` — its `Clips3D` (null for FBX); `mount(rider, mount, joint)` / `dismount(rider)` — a built GLB model on a joint (bone) of another |
 | `Gltf3D.js` | glTF/GLB through Babylon's loader (`libs/babylonjs.loaders.min.js`): skeleton, textures, animation clips; PBR -> `StandardMaterial` for the toon shader. `Clips3D`: `names()`, `has(name)`, `play(name, { loop, speed, blend, then })`, `stop()`, `current` — §GLB models |
 | `Objects.js` | `LOCATION_OBJECTS`: `{ name, model: 'assets/models/….fbx' \| '….glb', kind, x, y, h, rot: [x, y, z]°, scale: [x, y, z], anim?, clip?, tag?, hidden?, sound? }`; `rot[1]` is the heading (`rotation.y = −rot[1]`); `anim: { part, axis: 'x'\|'-x'\|'y'\|…, speed: rpm, dir: 'cw'\|'ccw' }` (FBX part spin); `clip: 'idle'` — looped clip of a GLB; `tag`, `hidden`, `sound` — §The scene as data. Written by the editor |
 | `Game.js` | the sample game — where game logic starts: `constructor(app)`, `update(dt)` before the render; keeps its own state (`running`, `energy`) and shows it through `Model3D.clips` and `UI.get` (skill `ui`) |
@@ -202,6 +202,12 @@ clips.play(moving ? 'run' : 'idle');              // every frame is fine: the cu
 clips.play('attack', { loop: false, then: 'idle' });
 ```
 
+- Rider on a mount: `Model3D.mount(rider, horse, 'saddle')` parents the rider's root to the
+  mount's joint node (the file's scale 100 and 90° turn are undone: origin at the joint, same
+  nose, size = the mount's scale, so scale/rotate/move only the mount). Both keep their own clips.
+  `false` — no such joint. `dismount(rider)` leaves the rider where it stands; dispose of the
+  mount takes a seated rider with it, dismount first. The `horse.glb` of `3D-models/` has `saddle`
+  (skill `units`).
 - A model placed in the editor: `rec = app.location.objects.find(o => o.def.name === 'character')`,
   `Model3D.clips(rec.mesh)` — `rec.mesh` is null until the file has loaded (`rec.loaded`).
   `def.clip` is the clip the location loops by itself; it acts only when the field CHANGES, so

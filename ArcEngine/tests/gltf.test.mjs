@@ -98,3 +98,24 @@ test('клипы: stop возвращает позу покоя', () => {
   assert.equal(idle.isPlaying, false);
   assert.equal(clips.current, '');
 });
+
+// Mount: a rider's root goes to the joint with the mount's meters-to-px node undone.
+function fakeNode(name) {
+  const node = { name, parent: null, rotationQuaternion: {}, position: { v: 1, setAll(x) { this.v = x; } }, scaling: { v: 1, setAll(x) { this.v = x; } }, rotation: { x: 0, y: 0, z: 0, set(x, y, z) { Object.assign(this, { x, y, z }); } } };
+  return node;
+}
+
+test('посадка: всадник встаёт на кость, масштаб и поворот файла гасятся, нет кости — false', () => {
+  const page = loadScripts(['js/Constants.js', 'js/Gltf3D.js']);
+  const Gltf3D = page.get('Gltf3D');
+  const horse = {}, saddle = fakeNode('horse/saddle'), rider = fakeNode('rider');
+  Gltf3D._joints.set(horse, new Map([['saddle', saddle]]));
+  assert.equal(Gltf3D.mount(rider, horse, 'nope'), false);
+  assert.equal(rider.parent, null);
+  assert.equal(Gltf3D.mount(rider, horse, 'saddle'), true);
+  assert.equal(rider.parent, saddle);
+  assert.equal(rider.rotationQuaternion, null);
+  assert.ok(Math.abs(rider.rotation.y + Math.PI / 2) < 1e-9);
+  assert.ok(Math.abs(rider.scaling.v * Gltf3D.UNITS - 1) < 1e-9);
+  assert.equal(Gltf3D.mount(rider, {}, 'saddle'), false, 'модель без костей');
+});

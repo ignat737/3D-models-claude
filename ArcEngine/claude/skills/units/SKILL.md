@@ -1,6 +1,6 @@
 ---
 name: units
-description: Low-poly unit models for a strategy game (Diplomacy is Not an Option style) in 3D-models/ — the generator tools/make-units.mjs, the shared GLB builder tools/unit-glb.mjs, unit descriptions tools/units/<unit>.mjs (joints, parts, palette, clips idle/run/attack/death), team colours, rotation signs, the triangle budget, previews. Read before creating a new unit, changing a unit's look, weapon, colours or animation, and before touching unit-glb.mjs.
+description: Low-poly unit models for a strategy game (Diplomacy is Not an Option style) in 3D-models/ — the generator tools/make-units.mjs, the shared GLB builder tools/unit-glb.mjs, unit descriptions tools/units/<unit>.mjs (joints, parts, palette, clips idle/run/attack/death), the horse and the swordsman's ride clips (a mount with a saddle joint), team colours, rotation signs, the triangle budget, previews. Read before creating a new unit, changing a unit's look, weapon, colours or animation, and before touching unit-glb.mjs.
 ---
 
 # Unit models: 3D-models/*.glb
@@ -14,6 +14,7 @@ node tools/unit-preview.mjs swordsman --squad  # 30 units from the RTS camera
 node tools/unit-preview.mjs swordsman --near   # close-up: faces, buckles, weapon grip
 node tools/unit-preview.mjs swordsman --pose=run@0.16,attack@0.36,death@1.3 --out=x.png
 node tools/unit-preview.mjs archer --heading=90 --pose=attack@1.0   # from the unit's left side
+node tools/unit-preview.mjs horse --rider=swordsman            # a mount with a rider (also --squad)
 ```
 
 A unit is CODE, never a hand-edited file: `tools/units/<unit>.mjs` describes it,
@@ -99,6 +100,20 @@ colour is left out), `armAngles`, `idleBody(t)`, `runBody(t)`, `deathBody(u)`, `
 In ArcEngine `Gltf3D.build` turns the file by 90°: the unit's nose is +X of the root, like
 FBX models; `root.rotation.y` is the heading.
 
+## Mounts and riders (horse.mjs)
+
+`horse.mjs` is a mount, not an infantry unit: an own skeleton (`body`, `neck`, `head`, `tail`,
+four legs of two joints, `saddle`), clips `idle` and `run` ONLY, no `attack`/`death`. The rider is
+a second model: `Model3D.mount(rider, horse, 'saddle')` parents its root to the `saddle` node (the
+joint node lives inside the mount's meters-to-px node, `Gltf3D.mount` undoes that), so the rider
+follows the horse's bounce and pitch. The swordsman has the matching clips `ride` (still) and
+`rideRun` (leaning forward, hips springing): hips at `SEAT` above the root, thighs by
+`pointJoint` forward and out, boots at about 0.43 m aside / 1.09 m up in the horse's frame — the
+horse's stirrups sit exactly there. Change one side, change the other (`tests/units.test.mjs`
+checks the knees stay outside the flanks, `--rider=swordsman` shows it). A mount with another
+rider needs its own seated clips. `previewGap` in the unit export is the spacing of the preview
+poses and squad (default 28, the horse 62).
+
 ## Clips every unit has
 
 | Clip | Loop | Typical | Notes |
@@ -107,8 +122,9 @@ FBX models; `root.rotation.y` is the heading.
 | `run` | yes | 0.64 s, 16 frames | legs +-42°, shins bend after the swing, hips bounce |
 | `attack` | yes | 0.9 s, 18 frames | guard -> wind-up -> strike with a step -> guard; melee loops it |
 | `death` | no | 1.3 s, 13 frames | ends lying: hips y < 0.25 (test); play with `{ loop: false }` |
+| `ride`, `rideRun` | yes | 2.4 s / 0.64 s | swordsman only: seated on a horse; `rideRun` pairs with the horse's `run` (same 0.64 s) |
 
-A ranged unit keeps the names (`attack` = draw and release) so game code stays the same.
+A ranged unit keeps the names (`attack` = draw and release) so game code stays the same. Exceptions: the horse has only `idle` and `run`; the swordsman also has `ride` and `rideRun` (mounted). `idle` and `run` come first in every file (test).
 
 ## Pitfalls met so far
 
