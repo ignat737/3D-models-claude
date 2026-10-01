@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import { IK_MISSES, UNITS, buildGlb, buildMesh, outOf } from '../tools/make-units.mjs';
 import { add, qconj, qrot, rig, sub } from '../tools/unit-glb.mjs';
 import { extentY } from '../tools/units/horse.mjs';
+import { extentY as wolfExtentY } from '../tools/units/wolf.mjs';
 
 function parseGlb(buf) {
   assert.equal(buf.toString('latin1', 0, 4), 'glTF');
@@ -151,6 +152,20 @@ test('лошадь: на земле во всех кадрах живых кли
   for (let f = 0; f < death.times.length; f++) assert.ok(extentY(poseAt(death, f))[0] > -0.01, `death кадр ${f}: ушла под землю`);
   const [low, high] = extentY(poseAt(death, death.times.length - 1));
   assert.ok(Math.abs(low) < 0.01 && high < 1.05, 'лежит на боку: ' + high.toFixed(2));
+});
+
+test('волк: клипы idle, run, attack, death; на земле в idle, не под землёй нигде, смерть кончается лёжа на земле', () => {
+  const wolf = UNITS.find(u => u.name === 'wolf');
+  assert.deepEqual(wolf.clips.map(c => c.name), ['idle', 'run', 'attack', 'death']);
+  assert.deepEqual(wolf.clips.map(c => c.loop), [true, true, true, false]);
+  const idle = wolf.clips.find(c => c.name === 'idle');
+  for (let f = 0; f < idle.times.length; f++) assert.ok(Math.abs(wolfExtentY(poseAt(idle, f))[0]) < 0.01, `idle кадр ${f}: лапы не на земле`);
+  for (const clip of wolf.clips) {
+    for (let f = 0; f < clip.times.length; f++) assert.ok(wolfExtentY(poseAt(clip, f))[0] > -0.05, `${clip.name} кадр ${f}: ушёл под землю`);
+  }
+  const death = wolf.clips.find(c => c.name === 'death');
+  const [low, high] = wolfExtentY(poseAt(death, death.times.length - 1));
+  assert.ok(Math.abs(low) < 0.01 && high < 0.5, 'лежит на боку: ' + high.toFixed(2));
 });
 
 test('мечник верхом: каждый клип той же длины и с тем же числом кадров, что клип лошади', () => {

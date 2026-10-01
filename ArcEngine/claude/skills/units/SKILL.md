@@ -49,7 +49,7 @@ a shape. Merge details before adding triangles.
 ## Unit file anatomy
 
 Templates: `swordsman.mjs` (arms by angles, items by `aimJoint`), `orc.mjs` (an own taller skeleton 1.15x, `grow()` scales the shared clips' hips track, a two-handed axe, attack poses found by a search), `scaled.mjs` (`scaledBody(sx, sy, sz)`: the humanoid joints, limbs and `grow()` at another size — `goblin.mjs` 0.88x with a javelin that is thrown and hidden by scale, `troll.mjs` 1.43x with a club planted head-down in idle and held in both hands in run and attack: the left fist goes to the butt side of the handle, the near end of a downward smash), `spearman.mjs` (arms by IK,
-a two-handed weapon), `archer.mjs` (IK, a stretching string, an item shown and hidden by scale).
+a two-handed weapon), `archer.mjs` (IK, a stretching string, an item shown and hidden by scale), `wolf.mjs` (an animal, no hands: an own skeleton with a `jaw` joint, the horse's leg swing, `grounded()`/`extentY()` kept local; a pounce with `dy`/`dz` lifting the body off the ground).
 `tools/units/humanoid.mjs` is the shared body: `BODY` (11 joints), `B` (their indices),
 `face()`, `limbs({ pauldron, upper, fore, fist, thigh, flap, shin, boot })` (a piece without a
 colour is left out), `armAngles`, `idleBody(t)`, `runBody(t)`, `deathBody(u)`, `FIST_L/R`, `HAND`.
