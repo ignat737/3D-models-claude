@@ -146,6 +146,7 @@ node tools/make-buildings.mjs [name] [--check]   # regenerate / verify 3D-models
 node tools/unit-preview.mjs peasant-house        # three views (--pose lists headings in degrees, 0 = the front)
 node tools/unit-preview.mjs peasant-house --squad    # a hamlet of 6 from the RTS camera
 node tools/unit-preview.mjs peasant-house --near --pose=20
+node tools/unit-preview.mjs peasant-house --with=spearman --pose=20   # a unit beside the building, for scale
 ```
 
 - A building is `tools/buildings/<name>.mjs`: `{ name, static: true, joints: [], palette, parts, clips: [], maxTriangles, preview: '25,90,155', previewGap }`.

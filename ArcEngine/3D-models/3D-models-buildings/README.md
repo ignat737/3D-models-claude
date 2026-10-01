@@ -14,6 +14,8 @@ Low-poly модели зданий для стратегии в том же ст
 
 ![Крестьянский дом вблизи: дверь, окно, бочка](previews/peasant-house-near.png)
 
+![Крестьянский дом и копейщик рядом: масштаб](previews/peasant-house-spearman.png)
+
 Метры, +Y вверх, фасад (дверь и окно) смотрит в +Z, конёк идёт вдоль X, труба на стороне +X
 (стандарт glTF). Начало координат — на земле в центре дома. Открывается в Blender, Unity, Godot и
 любом просмотрщике glTF.
@@ -46,6 +48,7 @@ node tools/make-buildings.mjs                       # пересобрать в�
 node tools/make-buildings.mjs --check               # проверить, что файлы совпадают с генератором
 node tools/unit-preview.mjs peasant-house           # previews/peasant-house.png — три ракурса в сцене игры
 node tools/unit-preview.mjs peasant-house --squad   # previews/peasant-house-squad.png — деревня с камеры RTS
+node tools/unit-preview.mjs peasant-house --with=spearman --pose=20   # с юнитом рядом (масштаб)
 node tools/unit-preview.mjs peasant-house --near --pose=20   # вблизи; --pose — углы в градусах (0 — фасад)
 ```
 

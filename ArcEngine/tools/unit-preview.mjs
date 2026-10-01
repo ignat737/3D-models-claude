@@ -10,6 +10,7 @@
 //   node tools/unit-preview.mjs horse --rider=swordsman  # the horse with a swordsman in the saddle
 //   node tools/unit-preview.mjs peasant-house           # a building (static): views from the corners
 //   node tools/unit-preview.mjs peasant-house --squad   # a hamlet of 6 from the RTS camera
+//   node tools/unit-preview.mjs peasant-house --with=spearman   # a unit standing by the building
 //   --gap=90: spacing of the poses in px (the default fits a standing unit; a fallen one is wider)
 //
 // --pose: clip@seconds, one unit per pose, side by side (default: the unit's `preview` field).
@@ -25,11 +26,12 @@ const outOf = u => (u.static ? buildingOut(u) : unitOut(u));
 
 // Runs in the page. Units stand south of the kit's farmer and mill, the view is framed from the
 // terrain height there: absolute heights would put the eye inside a hill.
-function placeScript(file, poses, mode, heading, gap, riderFile) {
+function placeScript(file, poses, mode, heading, gap, riderFile, withFile) {
   return `
 const view = app.location.view, scene = view.scene, T = app.location.terrain;
 const model = await Model3D.load(${JSON.stringify(file)}, scene);
 const riderModel = ${JSON.stringify(riderFile)} ? await Model3D.load(${JSON.stringify(riderFile)}, scene) : null;
+const withModel = ${JSON.stringify(withFile)} ? await Model3D.load(${JSON.stringify(withFile)}, scene) : null;
 const units = [];
 const freeze = (m, clip, sec) => {
   const c = Model3D.clips(m);
@@ -54,6 +56,7 @@ const add = (x, y, heading, clip, sec) => {
     freeze(r, clip === 'idle' ? 'ride' : 'ride' + clip[0].toUpperCase() + clip.slice(1), sec);
   }
   units.push(u);
+  return u;
 };
 const poses = ${JSON.stringify(poses)}, mode = ${JSON.stringify(mode)}, heading = ${JSON.stringify(heading)}, gap = ${JSON.stringify(gap)};
 let pose;
@@ -76,8 +79,21 @@ if (mode === 'squad' && !model.clips.length) {
   // heading: the camera looks along +X, a unit at rotation PI faces it; +90° shows its left side.
   poses.forEach((p, i) => add(1000 + 6 * i, 1130 + gap * i, p.heading !== undefined ? Math.PI + p.heading * Math.PI / 180 : heading === null ? Math.PI * (i % 2 ? 0.95 : 1.12) : Math.PI + heading * Math.PI / 180, p.clip, p.sec));
   const cx = 1000 + 3 * (poses.length - 1), cy = 1130 + gap / 2 * (poses.length - 1), h = T.heightAt(cx, cy);
-  const k = mode === 'near' ? 0.55 * Math.pow(gap / 28, 0.8) : Math.max(1.3, poses.length * 0.65 * Math.sqrt(gap / 28)) * (model.clips.length ? 1 : 1.35);
+  const k = mode === 'near' ? 0.55 * Math.pow(gap / 28, 0.8) : Math.max(1.3, poses.length * 0.65 * Math.sqrt(gap / 28)) * (model.clips.length ? 1 : 1.35) * (withModel ? 1.9 : 1);
   pose = { eye: [cx - 58 * k, cy - 16 * k, h + 22 + 12 * k], target: [cx, cy, h + (mode === 'near' ? 30 : 20)] };
+}
+if (withModel) {
+  // A unit by the building: placed in the building's model frame (meters: x along the ridge,
+  // z out of the door side), facing the same way as the front, in its idle.
+  const house = units[0], fit = house.getChildTransformNodes(true)[0];
+  const at = BABYLON.Vector3.TransformCoordinates(new BABYLON.Vector3(-3.0, 0, 2.2), fit.computeWorldMatrix(true));
+  const u = Model3D.build(withModel, scene, { name: 'with' });
+  World3D.addObject(view, u, 'actor');
+  u.position.set(at.x, T.heightAt(at.x, at.z), at.z);
+  u.scaling.setAll(0.25);
+  u.rotation.y = house.rotation.y;
+  freeze(u, 'idle', 0.6);
+  units.push(u);
 }
 const meshes = units.flatMap(u => u.getChildMeshes());
 for (let i = 0; i < 150 && !meshes.every(m => !m.material || m.material.isReady(m)); i++) await new Promise(r => setTimeout(r, 200));
@@ -108,6 +124,12 @@ if (process.argv[1] && path.resolve(process.argv[1]) === url.fileURLToPath(impor
     process.exit(1);
   }
   const riderFile = riderUnit ? path.relative(ROOT, outOf(riderUnit)).split(path.sep).join('/') : null;
+  const withUnit = arg('with') ? UNITS.find(u => u.name === arg('with')) : null;
+  if (arg('with') && (!withUnit || !unit.static)) {
+    console.error(`--with: юнит из ${UNITS.map(u => u.name).join(', ')} и только рядом со зданием`);
+    process.exit(1);
+  }
+  const withFile = withUnit ? path.relative(ROOT, outOf(withUnit)).split(path.sep).join('/') : null;
   const mode = process.argv.includes('--squad') ? 'squad' : process.argv.includes('--near') ? 'near' : 'row';
   const poses = unit.static
     // A building has no clips: --pose lists headings in degrees (0 — the front, 90 — its left side).
@@ -116,7 +138,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === url.fileURLToPath(impor
       const [clip, sec] = s.split('@');
       return { clip, sec: Number(sec) || 0 };
     });
-  const out = path.resolve(arg('out') || path.join(path.dirname(file), 'previews', unit.name + (riderUnit ? '-' + riderUnit.name : '') + (mode === 'squad' ? '-squad' : mode === 'near' ? '-near' : '') + '.png'));
+  const out = path.resolve(arg('out') || path.join(path.dirname(file), 'previews', unit.name + (riderUnit ? '-' + riderUnit.name : '') + (withUnit ? '-' + withUnit.name : '') + (mode === 'squad' ? '-squad' : mode === 'near' ? '-near' : '') + '.png'));
   let failed = false;
   const page = await openGame().catch((e) => {
     console.error(String(e && e.message || e));
@@ -125,7 +147,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === url.fileURLToPath(impor
   try {
     const rel = path.relative(ROOT, file).split(path.sep).join('/');
     const heading = arg('heading') === '' ? null : Number(arg('heading'));
-    const info = await page.eval(placeScript(rel, poses, mode, heading, Number(arg('gap')) || unit.previewGap || 28, riderFile));
+    const info = await page.eval(placeScript(rel, poses, mode, heading, Number(arg('gap')) || unit.previewGap || 28, riderFile, withFile));
     if (info.clamped) console.log('  камера поднята над землёй (Debug3D.hold clamped): кадр может быть не тем');
     await page.shot(out);
     const findings = await lint(page);
