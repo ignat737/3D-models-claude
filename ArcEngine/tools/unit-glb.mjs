@@ -224,7 +224,7 @@ export function buildMesh(unit) {
   for (const p of unit.parts) {
     const i = index[p.color];
     if (i === undefined) throw new Error(`${unit.name}: no palette colour "${p.color}"`);
-    for (const j of p.span ? p.joints : [p.joint]) if (!(j >= 0 && j < unit.joints.length)) throw new Error(`${unit.name}: bad joint ${j}`);
+    if (!unit.static) for (const j of p.span ? p.joints : [p.joint]) if (!(j >= 0 && j < unit.joints.length)) throw new Error(`${unit.name}: bad joint ${j}`);
     (p.span ? addSpan : p.s ? addBox : addRound)(out, p, [(i % size + 0.5) / size, (Math.floor(i / size) + 0.5) / size]);
   }
   checkWinding(out, unit.name);
@@ -287,8 +287,10 @@ const ARRAY_BUFFER = 34962, ELEMENT_ARRAY_BUFFER = 34963;
 const NEAREST = 9728, CLAMP = 33071;
 
 // unit: { name, joints, palette: [{ name, hex }], parts, clips }.
+// A static unit (buildings: `static: true`, no joints, no clips) is a plain mesh: no skin, no
+// joint nodes, no animations.
 export function buildGlb(unit) {
-  const { joints } = unit;
+  const { joints } = unit, skinned = !unit.static;
   const chunks = [], bufferViews = [], accessors = [];
   let offset = 0;
   const view = (typed, target) => {
@@ -315,8 +317,10 @@ export function buildGlb(unit) {
       POSITION: accessor(new Float32Array(m.positions), FLOAT, 'VEC3', 3, ARRAY_BUFFER, true),
       NORMAL: accessor(new Float32Array(m.normals), FLOAT, 'VEC3', 3, ARRAY_BUFFER),
       TEXCOORD_0: accessor(new Float32Array(m.uvs), FLOAT, 'VEC2', 2, ARRAY_BUFFER),
-      JOINTS_0: accessor(new Uint8Array(m.joints), UBYTE, 'VEC4', 4, ARRAY_BUFFER),
-      WEIGHTS_0: accessor(new Float32Array(m.joints.map((_, i) => (i % 4 === 0 ? 1 : 0))), FLOAT, 'VEC4', 4, ARRAY_BUFFER),
+      ...(skinned ? {
+        JOINTS_0: accessor(new Uint8Array(m.joints), UBYTE, 'VEC4', 4, ARRAY_BUFFER),
+        WEIGHTS_0: accessor(new Float32Array(m.joints.map((_, i) => (i % 4 === 0 ? 1 : 0))), FLOAT, 'VEC4', 4, ARRAY_BUFFER),
+      } : {}),
     },
     indices: accessor(new Uint16Array(m.indices), USHORT, 'SCALAR', 1, ELEMENT_ARRAY_BUFFER),
     material: 0,
@@ -326,10 +330,10 @@ export function buildGlb(unit) {
   // The bind pose has no rotations: the inverse bind matrix is a translation by −position.
   const inverseBind = new Float32Array(joints.length * 16);
   joints.forEach((j, i) => inverseBind.set([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -j.at[0], -j.at[1], -j.at[2], 1], i * 16));
-  const inverseBindMatrices = accessor(inverseBind, FLOAT, 'MAT4', 16);
+  const inverseBindMatrices = skinned ? accessor(inverseBind, FLOAT, 'MAT4', 16) : -1;
 
   // Nodes: 0 — the skinned mesh, 1… — joints (node = joint index + 1).
-  const nodes = [{ name: unit.name, mesh: 0, skin: 0 }];
+  const nodes = [{ name: unit.name, mesh: 0, ...(skinned ? { skin: 0 } : {}) }];
   joints.forEach((j, i) => {
     const p = j.parent < 0 ? [0, 0, 0] : joints[j.parent].at;
     const children = joints.map((c, k) => (c.parent === i ? k + 1 : 0)).filter(Boolean);
@@ -353,16 +357,16 @@ export function buildGlb(unit) {
   const gltf = {
     asset: { version: '2.0', generator: 'ArcEngine tools/make-units.mjs' },
     scene: 0,
-    scenes: [{ nodes: [0, 1] }],
+    scenes: [{ nodes: skinned ? [0, 1] : [0] }],
     nodes,
     meshes: [{ name: unit.name, primitives: [primitive] }],
-    skins: [{ joints: joints.map((_, i) => i + 1), skeleton: 1, inverseBindMatrices }],
+    ...(skinned ? { skins: [{ joints: joints.map((_, i) => i + 1), skeleton: 1, inverseBindMatrices }] } : {}),
     materials: [{ name: unit.name, pbrMetallicRoughness: { baseColorTexture: { index: 0 }, metallicFactor: 0, roughnessFactor: 1 } }],
     // NEAREST without mipmaps: a far-away unit keeps its colours instead of a grey palette average.
     samplers: [{ magFilter: NEAREST, minFilter: NEAREST, wrapS: CLAMP, wrapT: CLAMP }],
     textures: [{ sampler: 0, source: 0 }],
     images: [{ name: unit.name + '_palette', bufferView: image, mimeType: 'image/png' }],
-    animations,
+    ...(animations.length ? { animations } : {}),
     accessors,
     bufferViews,
     buffers: [{ byteLength: offset }],
