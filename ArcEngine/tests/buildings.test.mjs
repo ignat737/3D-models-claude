@@ -56,3 +56,13 @@ test('крестьянский дом: дверь в рост человека (
   assert.ok(house.palette.some(c => c.name === 'team') && house.palette.some(c => c.name === 'teamDark'));
   assert.ok(house.parts.filter(p => p.color === 'team').length >= 4);
 });
+
+test('казарма: больше дома, двойная дверь в рост человека, знамёна и флаг цвета команды', () => {
+  const house = BUILDINGS.find(b => b.name === 'peasant-house'), barracks = BUILDINGS.find(b => b.name === 'barracks');
+  const width = b => Math.max(...b.parts.filter(p => p.s).map(p => p.s[0]));
+  assert.ok(width(barracks) > width(house) + 2, 'длиннее дома');
+  const frame = barracks.parts.find(p => p.color === 'timber' && p.s && p.s[0] > 1.8 && p.s[1] > 1.8 && p.s[2] < 0.1);
+  assert.ok(frame, 'двойная дверь в раме');
+  assert.ok(barracks.parts.filter(p => p.color === 'team').length >= 5, 'знамёна, флаг, щит, пояс манекена');
+  assert.ok(buildMesh(barracks).indices.length / 3 > buildMesh(house).indices.length / 3);
+});

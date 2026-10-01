@@ -9,11 +9,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import url from 'node:url';
 import { buildGlb, buildMesh } from './unit-glb.mjs';
+import barracks from './buildings/barracks.mjs';
 import peasantHouse from './buildings/peasant-house.mjs';
 
 const ROOT = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), '..');
 const OUT_DIR = path.join(ROOT, '3D-models', '3D-models-buildings');
-const BUILDINGS = [peasantHouse];
+const BUILDINGS = [peasantHouse, barracks];
 const outOf = building => path.join(OUT_DIR, building.name + '.glb');
 
 export { BUILDINGS, OUT_DIR, outOf, buildGlb, buildMesh };

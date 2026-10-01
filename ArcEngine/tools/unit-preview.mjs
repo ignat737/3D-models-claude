@@ -26,7 +26,7 @@ const outOf = u => (u.static ? buildingOut(u) : unitOut(u));
 
 // Runs in the page. Units stand south of the kit's farmer and mill, the view is framed from the
 // terrain height there: absolute heights would put the eye inside a hill.
-function placeScript(file, poses, mode, heading, gap, riderFile, withFile) {
+function placeScript(file, poses, mode, heading, gap, riderFile, withFile, withAt, zoom = 1) {
   return `
 const view = app.location.view, scene = view.scene, T = app.location.terrain;
 const model = await Model3D.load(${JSON.stringify(file)}, scene);
@@ -79,14 +79,14 @@ if (mode === 'squad' && !model.clips.length) {
   // heading: the camera looks along +X, a unit at rotation PI faces it; +90° shows its left side.
   poses.forEach((p, i) => add(1000 + 6 * i, 1130 + gap * i, p.heading !== undefined ? Math.PI + p.heading * Math.PI / 180 : heading === null ? Math.PI * (i % 2 ? 0.95 : 1.12) : Math.PI + heading * Math.PI / 180, p.clip, p.sec));
   const cx = 1000 + 3 * (poses.length - 1), cy = 1130 + gap / 2 * (poses.length - 1), h = T.heightAt(cx, cy);
-  const k = mode === 'near' ? 0.55 * Math.pow(gap / 28, 0.8) : Math.max(1.3, poses.length * 0.65 * Math.sqrt(gap / 28)) * (model.clips.length ? 1 : 1.35) * (withModel ? 1.9 : 1);
+  const k = mode === 'near' ? 0.55 * Math.pow(gap / 28, 0.8) : Math.max(1.3, poses.length * 0.65 * Math.sqrt(gap / 28)) * (model.clips.length ? 1 : 1.35) * (withModel ? 1.9 : 1) * ${JSON.stringify(zoom)};
   pose = { eye: [cx - 58 * k, cy - 16 * k, h + 22 + 12 * k], target: [cx, cy, h + (mode === 'near' ? 30 : 20)] };
 }
 if (withModel) {
   // A unit by the building: placed in the building's model frame (meters: x along the ridge,
   // z out of the door side), facing the same way as the front, in its idle.
   const house = units[0], fit = house.getChildTransformNodes(true)[0];
-  const at = BABYLON.Vector3.TransformCoordinates(new BABYLON.Vector3(-3.0, 0, 2.2), fit.computeWorldMatrix(true));
+  const at = BABYLON.Vector3.TransformCoordinates(new BABYLON.Vector3(${JSON.stringify(withAt[0])}, 0, ${JSON.stringify(withAt[1])}), fit.computeWorldMatrix(true));
   const u = Model3D.build(withModel, scene, { name: 'with' });
   World3D.addObject(view, u, 'actor');
   u.position.set(at.x, T.heightAt(at.x, at.z), at.z);
@@ -147,7 +147,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === url.fileURLToPath(impor
   try {
     const rel = path.relative(ROOT, file).split(path.sep).join('/');
     const heading = arg('heading') === '' ? null : Number(arg('heading'));
-    const info = await page.eval(placeScript(rel, poses, mode, heading, Number(arg('gap')) || unit.previewGap || 28, riderFile, withFile));
+    const info = await page.eval(placeScript(rel, poses, mode, heading, Number(arg('gap')) || unit.previewGap || 28, riderFile, withFile, unit.withAt || [-3.0, 2.2], unit.previewZoom || 1));
     if (info.clamped) console.log('  камера поднята над землёй (Debug3D.hold clamped): кадр может быть не тем');
     await page.shot(out);
     const findings = await lint(page);
