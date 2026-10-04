@@ -27,7 +27,7 @@ Objects (импорт FBX/GLB, гизмо, свойства объектов, а
 | своя геометрия (сетка из вершин, порт генератора, импорт glTF), материал с картой нормалей, новый источник света, свой шейдер, thin instances и процедурная расстановка; «сетка вывернута», «свет не с той стороны», пропал свет или меш | `claude/skills/render-conventions/SKILL.md` |
 | проверка правки глазами и числами: панель браузера, `Debug3D` (удержание вида, кадры без rAF, замер, линтер сцены, отладочные режимы), замер цены кадра, воспроизведение состояния пользователя | `claude/skills/verify/SKILL.md` |
 | нет панели браузера (облачная песочница, CI, агент в терминале): скриншот игры, eval в странице, `Debug3D.lint()` из консоли — `tools/browser.mjs`, `tools/unit-preview.mjs`; headless Chrome не стартует или без WebGL | `claude/skills/headless/SKILL.md` |
-| модели юнитов для стратегии в `3D-models/`: новый юнит, внешний вид, оружие, цвета команды, анимации `idle`/`run`/`attack`/`death`; `tools/make-units.mjs`, `tools/unit-glb.mjs`, `tools/units/*.mjs`; здания (статичные, без анимации) в `3D-models/3D-models-buildings/`: `tools/make-buildings.mjs`, `tools/buildings/*.mjs` | `claude/skills/units/SKILL.md` |
+| модели юнитов для стратегии в `3D-models/`: новый юнит, внешний вид, оружие, цвета команды, анимации `idle`/`run`/`attack`/`death`; `tools/make-units.mjs`, `tools/unit-glb.mjs`, `tools/units/*.mjs`; здания (статичные, без анимации) в `3D-models/3D-models-buildings/` и укрепления в `3D-models/3D-models-defense/`: `tools/make-buildings.mjs`, `tools/buildings/*.mjs`, `tools/defense/*.mjs` | `claude/skills/units/SKILL.md` |
 
 ## Запуск и сборка
 
@@ -127,11 +127,12 @@ assets/           ground_texture_{g,d,s}.jpg — трава, песок, сне�
 tools/            dev-server.mjs, build.mjs, asset-scan.mjs, zip.mjs, check.mjs (типы + тесты),
                   make-character.mjs, make-sounds.mjs; make-units.mjs + unit-glb.mjs + units/*.mjs —
                   генератор low-poly юнитов для стратегии в 3D-models/; make-buildings.mjs + buildings/*.mjs —
-                  генератор статичных зданий в 3D-models/3D-models-buildings/; browser.mjs — игра в headless
+                  генератор статичных зданий и укреплений в 3D-models/3D-models-buildings/ и 3D-models-defense/; browser.mjs — игра в headless
                   Chrome без панели браузера (скриншот, eval, lint); unit-preview.mjs — снимок юнита в сцене
 3D-models/        модели юнитов (GLB: один меш, один материал-палитра, клипы idle/run/attack/death; лошадь — idle, run, attack, runAttack, death и кость saddle; mounted-swordsman — всадник на лошади одним файлом),
                   генерируются tools/make-units.mjs; в игру — копией в assets/models/ (README.md);
-                  3D-models-buildings/ — статичные здания (peasant-house.glb, barracks.glb), генерируются tools/make-buildings.mjs
+                  3D-models-buildings/ — статичные здания (peasant-house.glb, barracks.glb), генерируются tools/make-buildings.mjs;
+                  3D-models-defense/ — укрепления (palisade-segment.glb — частокол 10 м, palisade-tower.glb — башня со стрелковой площадкой, palisade-gate.glb и palisade-gate-open.glb — ворота закрытые и открытые), тот же генератор (tools/defense/*.mjs)
 tsconfig.json     проверка типов игры; globals.d.ts — window.app, material.arcToon, записи объектов
 tests/            *.test.mjs (node --test): Store, heightAt, сканер ассетов, запись редактора, звук,
                   связка скиллов; browser-scripts.mjs — скрипты игры в node:vm + пустышка Babylon

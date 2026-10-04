@@ -70,3 +70,45 @@ test('казарма: два этажа выше дома, длиннее его
   assert.ok(barracks.parts.filter(p => p.color === 'team').length >= 6, 'знамёна, балкон, флаг, щит, пояс манекена');
   assert.ok(buildMesh(barracks).indices.length / 3 > buildMesh(house).indices.length / 3);
 });
+
+test('частокол: сегмент ровно 10 м вдоль X, стыкуется торцами, лежит в 3D-models-defense, цвет команды на вымпеле', () => {
+  const wall = BUILDINGS.find(b => b.name === 'palisade-segment');
+  assert.equal(wall.folder, '3D-models-defense');
+  assert.ok(outOf(wall).endsWith('3D-models-defense/palisade-segment.glb') || outOf(wall).endsWith('3D-models-defense\\palisade-segment.glb'));
+  const { gltf } = parseGlb(buildGlb(wall));
+  const { min, max } = gltf.accessors[gltf.meshes[0].primitives[0].attributes.POSITION];
+  assert.ok(Math.abs(min[0] + 5) < 1e-5 && Math.abs(max[0] - 5) < 1e-5, 'от -5 до +5 м');
+  assert.ok(max[1] > 2.8 && max[1] < 5, 'брёвна выше человека');
+  assert.ok(wall.parts.some(p => p.color === 'team') && wall.parts.some(p => p.color === 'teamDark'));
+});
+
+test('башня частокола: 3 x 3 м по оси стены, площадка для стрелков на 3,6 м, парапет по грудь, лестница, цвет команды', () => {
+  const tower = BUILDINGS.find(b => b.name === 'palisade-tower');
+  assert.equal(tower.folder, '3D-models-defense');
+  const { gltf } = parseGlb(buildGlb(tower));
+  const { min, max } = gltf.accessors[gltf.meshes[0].primitives[0].attributes.POSITION];
+  assert.ok(Math.abs(min[0] + max[0]) < 0.05 && Math.abs(min[2] + max[2]) < 0.7, 'центр на оси стены');
+  const planks = tower.parts.filter(p => p.s && p.s[0] > 3.4 && p.c[1] > 3 && p.c[1] < 3.6);
+  assert.ok(planks.length >= 5 && planks.reduce((a, p) => a + p.s[2], 0) > 3.4, 'настил шире основания (свес)');
+  const deck = planks[0];
+  const floor = deck.c[1] + deck.s[1] / 2;
+  const logs = tower.parts.filter(p => p.h && p.c[1] > floor && p.c[1] < floor + 1.4 && p.r[0] === p.r[1]);
+  assert.ok(logs.length >= 15 && logs.every(p => p.c[1] - p.h / 2 >= floor - 1e-6), 'парапет стоит на площадке');
+  assert.ok(max[1] > floor + 2, 'над площадкой крыша выше человека');
+  assert.ok(tower.parts.some(p => p.color === 'team') && tower.parts.some(p => p.color === 'teamDark'));
+});
+
+test('ворота частокола: секция 10 м вместо сегмента, открытые створки не загораживают проём 4,2 x 3,4 м, закрытые — загораживают', () => {
+  const closed = BUILDINGS.find(b => b.name === 'palisade-gate'), open = BUILDINGS.find(b => b.name === 'palisade-gate-open');
+  assert.ok(closed && open && closed.folder === '3D-models-defense' && open.folder === '3D-models-defense');
+  for (const g of [closed, open]) {
+    const { gltf } = parseGlb(buildGlb(g));
+    const { min, max } = gltf.accessors[gltf.meshes[0].primitives[0].attributes.POSITION];
+    assert.ok(Math.abs(min[0] + 5) < 1e-5 && Math.abs(max[0] - 5) < 1e-5, g.name + ': от -5 до +5 м');
+    assert.ok(g.parts.some(p => p.color === 'team') && g.parts.some(p => p.color === 'teamDark'), g.name);
+  }
+  // Boxes with no turn that stand in the opening between the posts (|x| < 2.1) below the lintel.
+  const blocks = g => g.parts.filter(p => p.s && !p.q && p.color !== 'earth' && p.c[1] > 0.3 && p.c[1] < 3.2 && Math.abs(p.c[0]) + p.s[0] / 2 < 2.15);
+  assert.ok(blocks(closed).length >= 20, 'створки закрыты');
+  assert.equal(blocks(open).filter(p => p.s[0] > 0.2 && p.s[2] < 1).length, 0, 'в открытом проёме нет досок поперёк');
+});
