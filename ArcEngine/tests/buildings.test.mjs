@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { test } from 'node:test';
-import { BUILDINGS, buildGlb, buildMesh, outOf } from '../tools/make-buildings.mjs';
+import { BUILDINGS, MAX_TRIANGLES, buildGlb, buildMesh, outOf } from '../tools/make-buildings.mjs';
 
 function parseGlb(buf) {
   assert.equal(buf.toString('latin1', 0, 4), 'glTF');
@@ -38,7 +38,7 @@ for (const building of BUILDINGS) {
     assert.equal(bin.toString('latin1', img.byteOffset + 1, img.byteOffset + 4), 'PNG');
     assert.equal(gltf.samplers[0].minFilter, 9728, 'без мипмапов: палитра не сереет вдали');
     assert.ok(building.palette.length <= 16, 'палитра 4x4');
-    assert.ok(buildMesh(building).indices.length / 3 <= building.maxTriangles, `не больше ${building.maxTriangles} треугольников`);
+    assert.ok(buildMesh(building).indices.length / 3 <= MAX_TRIANGLES, `не больше ${MAX_TRIANGLES} треугольников`);
     // Stands on the ground, every UV at a texel centre (a part is one flat colour).
     assert.ok(Math.abs(gltf.accessors[p.attributes.POSITION].min[1]) < 1e-6);
     const uv = gltf.accessors[p.attributes.TEXCOORD_0], view = gltf.bufferViews[uv.bufferView];
@@ -57,12 +57,16 @@ test('крестьянский дом: дверь в рост человека (
   assert.ok(house.parts.filter(p => p.color === 'team').length >= 4);
 });
 
-test('казарма: больше дома, двойная дверь в рост человека, знамёна и флаг цвета команды', () => {
+test('казарма: два этажа выше дома, длиннее его, двойная дверь, балкон, знамёна и флаг цвета команды', () => {
   const house = BUILDINGS.find(b => b.name === 'peasant-house'), barracks = BUILDINGS.find(b => b.name === 'barracks');
   const width = b => Math.max(...b.parts.filter(p => p.s).map(p => p.s[0]));
+  const top = b => Math.max(...b.parts.filter(p => p.s && !p.q).map(p => p.c[1] + p.s[1] / 2));
   assert.ok(width(barracks) > width(house) + 2, 'длиннее дома');
+  assert.ok(top(barracks) > top(house) + 1.5, 'два этажа выше одного');
   const frame = barracks.parts.find(p => p.color === 'timber' && p.s && p.s[0] > 1.8 && p.s[1] > 1.8 && p.s[2] < 0.1);
   assert.ok(frame, 'двойная дверь в раме');
-  assert.ok(barracks.parts.filter(p => p.color === 'team').length >= 5, 'знамёна, флаг, щит, пояс манекена');
+  const upperDoor = barracks.parts.find(p => p.color === 'timber' && p.s && p.s[0] > 0.8 && p.s[1] > 1.5 && p.s[2] < 0.1 && p.c[1] - p.s[1] / 2 > 2.6);
+  assert.ok(upperDoor, 'дверь на балкон во втором этаже');
+  assert.ok(barracks.parts.filter(p => p.color === 'team').length >= 6, 'знамёна, балкон, флаг, щит, пояс манекена');
   assert.ok(buildMesh(barracks).indices.length / 3 > buildMesh(house).indices.length / 3);
 });

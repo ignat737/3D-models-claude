@@ -149,13 +149,13 @@ node tools/unit-preview.mjs peasant-house --near --pose=20
 node tools/unit-preview.mjs peasant-house --with=spearman --pose=20   # a unit beside the building, for scale
 ```
 
-- A building is `tools/buildings/<name>.mjs`: `{ name, static: true, joints: [], palette, parts, clips: [], maxTriangles, preview: '25,90,155', previewGap, previewZoom, withAt: [x, z] }`; `withAt` is where `--with=<unit>` stands (building frame, meters).
+- A building is `tools/buildings/<name>.mjs`: `{ name, static: true, joints: [], palette, parts, clips: [], preview: '25,90,155', previewGap, previewZoom, withAt: [x, z] }`; `withAt` is where `--with=<unit>` stands (building frame, meters).
   Parts have no `joint`; `buildGlb` writes plain POSITION/NORMAL/TEXCOORD_0, no skin, no animations.
   A new building is a file there plus a line in `BUILDINGS` of `tools/make-buildings.mjs`; `tests/buildings.test.mjs` covers it.
 - Model space: meters, feet at y = 0 and origin at the centre of the footprint, the front (door) faces +Z.
 - A gable triangle is a 3-sided frustum turned by `rotZ(90°)` (apex up): height 1.5 r, base 1.732 r times `sq`.
   A sloped slab is a box with `q: rotX(±pitch)` about its own centre; a beam in the plane of a gable is a box turned by `rotX(atan2(-dy, dz))`.
-- Keep decals >= 0.006 m above their surface (z-fighting) and the whole building under 1000 triangles (the peasant house is 804; a bigger one such as `barracks` sets `maxTriangles: 1400`, 1228 used).
+- Keep decals >= 0.006 m above their surface (z-fighting) and the whole building within `MAX_TRIANGLES` = 2500 triangles (`tools/make-buildings.mjs`, checked by `tests/buildings.test.mjs`; units keep 1000). The peasant house is 804, the two-floor barracks 1996.
 
 ## Clips every unit has
 
