@@ -7,6 +7,7 @@ Low-poly модели зданий для стратегии в том же ст
 | Файл | Здание | Треугольники | Цвета |
 |---|---|---|---|
 | `peasant-house.glb` | крестьянский дом: каменный цоколь, оштукатуренные стены в деревянном каркасе, крутая соломенная двускатная крыша, каменная печная труба на торце, дверь, окно с ставнями и ящиком цветов, окошко на чердаке, бочка у двери, вымпел на коньке. 4,2 × 3,2 м по стенам, 4,4 м до конька, 5,8 м с вымпелом | 804 | 14 из 16 |
+| `barracks.glb` | средневековая казарма в два этажа: каменный первый этаж с бойницами и двустворчатой дверью с железными полосами между двумя знамёнами цвета команды; фахверковый второй этаж нависает над первым, в нём окна с карнизами и дверь на балкон с перилами и полотнищем цвета команды; красная черепичная двускатная крыша, каменная труба на торце, стойка с тремя копьями и щитом, тренировочный манекен, флаг на коньке. 7,0 × 4,4 м по первому этажу (7,2 × 4,6 м по второму), 5,2 м до стрехи, 7,2 м до конька, 8,75 м с флагом | 1996 | 15 из 16 |
 
 ![Крестьянский дом: три ракурса](previews/peasant-house.png)
 
@@ -16,11 +17,19 @@ Low-poly модели зданий для стратегии в том же ст
 
 ![Крестьянский дом и копейщик рядом: масштаб](previews/peasant-house-spearman.png)
 
+![Казарма: три ракурса](previews/barracks.png)
+
+![Шесть казарм с камеры RTS](previews/barracks-squad.png)
+
+![Казарма вблизи: дверь, балкон второго этажа, знамёна, стойка с копьями, манекен](previews/barracks-near.png)
+
+![Казарма и копейщик рядом: масштаб](previews/barracks-spearman.png)
+
 Метры, +Y вверх, фасад (дверь и окно) смотрит в +Z, конёк идёт вдоль X, труба на стороне +X
 (стандарт glTF). Начало координат — на земле в центре дома. Открывается в Blender, Unity, Godot и
 любом просмотрщике glTF.
 
-Цвет команды — тексели `team` и `teamDark` палитры, те же, что у юнитов: дверь, ставни и вымпел.
+Цвет команды — тексели `team` и `teamDark` палитры, те же, что у юнитов: у дома дверь, ставни и вымпел, у казармы знамёна, щит на стойке, пояс манекена и флаг.
 
 ## В ArcEngine
 
@@ -28,7 +37,7 @@ Low-poly модели зданий для стратегии в том же ст
 его не увидит) и расставить во вкладке Objects редактора или из кода:
 
 ```js
-const model = await Model3D.load('assets/models/peasant-house.glb', view.scene);
+const model = await Model3D.load('assets/models/barracks.glb', view.scene);  // или peasant-house.glb
 const house = Model3D.build(model, view.scene, { name: 'house' });
 World3D.addObject(view, house, 'prop');
 house.scaling.setAll(0.25);                         // тот же масштаб, что у юнитов
@@ -48,10 +57,10 @@ node tools/make-buildings.mjs                       # пересобрать в�
 node tools/make-buildings.mjs --check               # проверить, что файлы совпадают с генератором
 node tools/unit-preview.mjs peasant-house           # previews/peasant-house.png — три ракурса в сцене игры
 node tools/unit-preview.mjs peasant-house --squad   # previews/peasant-house-squad.png — деревня с камеры RTS
-node tools/unit-preview.mjs peasant-house --with=spearman --pose=20   # с юнитом рядом (масштаб)
+node tools/unit-preview.mjs barracks --with=spearman --pose=20   # с юнитом рядом (масштаб)
 node tools/unit-preview.mjs peasant-house --near --pose=20   # вблизи; --pose — углы в градусах (0 — фасад)
 ```
 
 Здание описано в `tools/buildings/<имя>.mjs` (палитра, детали из коробок и усечённых конусов,
-`static: true`), сборщик GLB — общий `tools/unit-glb.mjs`. Новое здание — новый файл в
+`static: true`), сборщик GLB — общий `tools/unit-glb.mjs`. Поля превью в файле здания: `preview` (углы), `previewGap` и `previewZoom` (расстановка и отдаление камеры), `withAt` (куда ставить юнита при `--with`, метры). Новое здание — новый файл в
 `tools/buildings/` и строка в `BUILDINGS` в `tools/make-buildings.mjs`.

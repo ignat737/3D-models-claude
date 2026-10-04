@@ -131,7 +131,7 @@ tools/            dev-server.mjs, build.mjs, asset-scan.mjs, zip.mjs, check.mjs 
                   Chrome без панели браузера (скриншот, eval, lint); unit-preview.mjs — снимок юнита в сцене
 3D-models/        модели юнитов (GLB: один меш, один материал-палитра, клипы idle/run/attack/death; лошадь — idle, run, attack, runAttack, death и кость saddle; mounted-swordsman — всадник на лошади одним файлом),
                   генерируются tools/make-units.mjs; в игру — копией в assets/models/ (README.md);
-                  3D-models-buildings/ — статичные здания (peasant-house.glb), генерируются tools/make-buildings.mjs
+                  3D-models-buildings/ — статичные здания (peasant-house.glb, barracks.glb), генерируются tools/make-buildings.mjs
 tsconfig.json     проверка типов игры; globals.d.ts — window.app, material.arcToon, записи объектов
 tests/            *.test.mjs (node --test): Store, heightAt, сканер ассетов, запись редактора, звук,
                   связка скиллов; browser-scripts.mjs — скрипты игры в node:vm + пустышка Babylon

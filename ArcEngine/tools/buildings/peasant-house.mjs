@@ -133,6 +133,5 @@ const PARTS = [
 
 export default {
   name: 'peasant-house', static: true, joints: [], palette: PALETTE, parts: PARTS, clips: [],
-  maxTriangles: 1000,
   preview: '25,90,155', previewGap: 150,
 };

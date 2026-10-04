@@ -9,14 +9,17 @@ import fs from 'node:fs';
 import path from 'node:path';
 import url from 'node:url';
 import { buildGlb, buildMesh } from './unit-glb.mjs';
+import barracks from './buildings/barracks.mjs';
 import peasantHouse from './buildings/peasant-house.mjs';
 
 const ROOT = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), '..');
 const OUT_DIR = path.join(ROOT, '3D-models', '3D-models-buildings');
-const BUILDINGS = [peasantHouse];
+const BUILDINGS = [peasantHouse, barracks];
+// The triangle budget of every building (units: 1000). One draw call each, there are few of them.
+const MAX_TRIANGLES = 2500;
 const outOf = building => path.join(OUT_DIR, building.name + '.glb');
 
-export { BUILDINGS, OUT_DIR, outOf, buildGlb, buildMesh };
+export { BUILDINGS, MAX_TRIANGLES, OUT_DIR, outOf, buildGlb, buildMesh };
 
 if (process.argv[1] && path.resolve(process.argv[1]) === url.fileURLToPath(import.meta.url)) {
   const names = process.argv.slice(2).filter(a => !a.startsWith('--'));
