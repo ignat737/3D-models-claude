@@ -27,7 +27,7 @@ Objects (импорт FBX/GLB, гизмо, свойства объектов, а
 | своя геометрия (сетка из вершин, порт генератора, импорт glTF), материал с картой нормалей, новый источник света, свой шейдер, thin instances и процедурная расстановка; «сетка вывернута», «свет не с той стороны», пропал свет или меш | `claude/skills/render-conventions/SKILL.md` |
 | проверка правки глазами и числами: панель браузера, `Debug3D` (удержание вида, кадры без rAF, замер, линтер сцены, отладочные режимы), замер цены кадра, воспроизведение состояния пользователя | `claude/skills/verify/SKILL.md` |
 | нет панели браузера (облачная песочница, CI, агент в терминале): скриншот игры, eval в странице, `Debug3D.lint()` из консоли — `tools/browser.mjs`, `tools/unit-preview.mjs`; headless Chrome не стартует или без WebGL | `claude/skills/headless/SKILL.md` |
-| модели юнитов для стратегии в `3D-models/`: новый юнит, внешний вид, оружие, цвета команды, анимации `idle`/`run`/`attack`/`death`; `tools/make-units.mjs`, `tools/unit-glb.mjs`, `tools/units/*.mjs`; здания (статичные, без анимации) в `3D-models/3D-models-buildings/` и укрепления в `3D-models/3D-models-defense/`: `tools/make-buildings.mjs`, `tools/buildings/*.mjs`, `tools/defense/*.mjs` | `claude/skills/units/SKILL.md` |
+| модели юнитов для стратегии в `3D-models/`: новый юнит, внешний вид, оружие, цвета команды, анимации `idle`/`run`/`attack`/`death`; `tools/make-units.mjs`, `tools/unit-glb.mjs`, `tools/units/*.mjs`; здания (статичные, без анимации) в `3D-models/3D-models-buildings/` укрепления в `3D-models/3D-models-defense/` и растения в `3D-models/3D-models-plants/`: `tools/make-buildings.mjs`, `tools/buildings/*.mjs`, `tools/defense/*.mjs`, `tools/plants/*.mjs` | `claude/skills/units/SKILL.md` |
 
 ## Запуск и сборка
 
