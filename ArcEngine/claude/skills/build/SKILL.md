@@ -20,7 +20,7 @@ node tools/make-character.mjs          # regenerate assets/models/character.glb 
 node tools/make-character.mjs --check  # exit 1 if the file differs from the generator
 node tools/make-sounds.mjs             # regenerate assets/sounds/*.wav (the sample sounds, skill sound)
 node tools/make-sounds.mjs --check     # exit 1 if a file differs from the generator
-node tools/make-units.mjs              # regenerate 3D-models/*.glb (strategy units, tools/units/*.mjs)
+node tools/make-units.mjs              # regenerate 3D-models/3D-models-units/*.glb (strategy units, tools/units/*.mjs)
 node tools/make-units.mjs --check      # exit 1 if a unit file differs from its generator
 node tools/make-buildings.mjs          # regenerate 3D-models/3D-models-buildings/*.glb (static buildings)
 node tools/make-buildings.mjs --check  # exit 1 if a building file differs from its generator

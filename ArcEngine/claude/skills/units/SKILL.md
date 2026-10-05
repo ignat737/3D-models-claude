@@ -1,15 +1,15 @@
 ---
 name: units
-description: Low-poly unit models for a strategy game (Diplomacy is Not an Option style) in 3D-models/ — the generator tools/make-units.mjs, the shared GLB builder tools/unit-glb.mjs, unit descriptions tools/units/<unit>.mjs (joints, parts, palette, clips idle/run/attack/death), the horse and the swordsman's ride clips (a mount with a saddle joint), team colours, rotation signs, the triangle budget, previews. Read before creating a new unit, changing a unit's look, weapon, colours or animation, and before touching unit-glb.mjs.
+description: Low-poly unit models for a strategy game (Diplomacy is Not an Option style) in 3D-models/3D-models-units/ — the generator tools/make-units.mjs, the shared GLB builder tools/unit-glb.mjs, unit descriptions tools/units/<unit>.mjs (joints, parts, palette, clips idle/run/attack/death), the horse and the swordsman's ride clips (a mount with a saddle joint), team colours, rotation signs, the triangle budget, previews. Read before creating a new unit, changing a unit's look, weapon, colours or animation, and before touching unit-glb.mjs.
 ---
 
-# Unit models: 3D-models/*.glb
+# Unit models: 3D-models/3D-models-units/*.glb
 
 ```
 node tools/make-units.mjs                      # regenerate every unit
 node tools/make-units.mjs swordsman            # one unit
 node tools/make-units.mjs --check              # exit 1 if a file differs from its generator
-node tools/unit-preview.mjs swordsman          # 3D-models/previews/swordsman.png (skill headless)
+node tools/unit-preview.mjs swordsman          # 3D-models/3D-models-units/previews/swordsman.png (skill headless)
 node tools/unit-preview.mjs swordsman --squad  # 30 units from the RTS camera
 node tools/unit-preview.mjs swordsman --near   # close-up: faces, buckles, weapon grip
 node tools/unit-preview.mjs swordsman --pose=run@0.16,attack@0.36,death@1.3 --out=x.png
@@ -204,4 +204,4 @@ A ranged unit keeps the names (`attack` = draw and release) so game code stays t
    stay byte-identical: `node tools/make-units.mjs --check` before regenerating.
 4. `node tools/unit-preview.mjs <unit>`, `--squad`, `--heading=90`, and `--pose=` for every clip
    you touched — LOOK at the PNGs (open the image), lint must be clean. The default outputs in
-   `3D-models/previews/` are the pictures users see: regenerate them after a visual change.
+   `3D-models/3D-models-units/previews/` are the pictures users see: regenerate them after a visual change.

@@ -1,4 +1,4 @@
-// Unit models for a strategy game: tools/make-units.mjs -> 3D-models/*.glb (shared builder
+// Unit models for a strategy game: tools/make-units.mjs -> 3D-models/3D-models-units/*.glb (shared builder
 // tools/unit-glb.mjs). Files on disk match the generators, one mesh + one material each, the
 // skeleton and clips are consistent, looped clips have no seam, the death clip ends on the ground.
 import assert from 'node:assert/strict';

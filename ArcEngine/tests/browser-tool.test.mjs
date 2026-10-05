@@ -18,7 +18,7 @@ test('сервер: файлы проекта с no-store и MIME, за пред
     assert.equal(index.headers.get('cache-control'), 'no-store');
     assert.match(index.headers.get('content-type'), /text\/html/);
     await index.arrayBuffer();
-    const glb = await fetch(server.url + '/3D-models/swordsman.glb');
+    const glb = await fetch(server.url + '/3D-models/3D-models-units/swordsman.glb');
     assert.equal(glb.headers.get('content-type'), 'model/gltf-binary');
     assert.equal(Buffer.from(await glb.arrayBuffer()).toString('latin1', 0, 4), 'glTF');
     for (const bad of ['/nope.js', '/..%2f..%2fetc%2fpasswd', '/js']) {

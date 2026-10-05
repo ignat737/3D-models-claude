@@ -1,4 +1,4 @@
-// unit-glb.mjs — shared builder of the low-poly unit models in 3D-models/ (tools/make-units.mjs).
+// unit-glb.mjs — shared builder of the low-poly unit models in 3D-models/3D-models-units/ (tools/make-units.mjs).
 // A unit = joints + rigid parts (boxes and frustums) + clips -> one skinned GLB with ONE mesh,
 // ONE material and a tiny palette texture (a colour = a texel, every vertex of a part samples the
 // centre of its texel). However many colours a unit has, it is one draw call: an army of them

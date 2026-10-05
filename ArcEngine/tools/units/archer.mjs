@@ -84,21 +84,22 @@ const PARTS = [
 const HIDDEN = [0.02, 0.02, 0.02];
 const BOW_DOWN = rotX(18 * DEG);                         // bow at the side, top tilted forward
 const ARROW_DOWN = fromTo([0, 1, 0], [0, -1, 0.3]);
-const ARROW_UP = norm([0.1, 1, -0.2]);                   // just pulled out of the quiver
+const LIFT = 0.06;                                       // the arrow lies this far above the bow fist
 const DRAW = [-0.16, 1.54, 0.05];                        // anchor: the fist at the right cheek
-const withArrow = (pose, aim, scale) => {
-  aimJoint(pose, 'arrow', aim);
+const withArrow = (pose, aim, scale, slide) => {
+  aimJoint(pose, 'arrow', aim, slide);
   pose['arrow.scale'] = scale;
   return pose;
 };
 
 // Attack key poses: torso yaw ty, left fist (the bow grip) l*, bow pitch bp, right fist key h*;
 // atNock pulls the right fist to the string's rest point, draw — how much the string follows
-// the right fist, arrow — its scale, onBow — the arrow turns from "up" to "along the bow".
-const READY = { u: 0, ty: -15, lx: 0.16, ly: 1.18, lz: 0.40, bp: 40, hx: -0.12, hy: 1.12, hz: 0.22, atNock: 0, draw: 0, arrow: 0.02, onBow: 0 };
+// the right fist, arrow — its scale, onBow — the arrow turns from "in the quiver, point down" to
+// "along the bow", slide — the fist holds the arrow this far from its nock (fletching).
+const READY = { u: 0, ty: -15, lx: 0.16, ly: 1.18, lz: 0.40, bp: 40, hx: -0.12, hy: 1.12, hz: 0.22, atNock: 0, draw: 0, arrow: 0.02, onBow: 0, slide: -0.15 };
 // Nocking happens with the bow still close: the right hand must reach the string at rest.
-const NOCKED = { u: 0.40, ty: -30, lx: 0.02, ly: 1.38, lz: 0.42, bp: 5, hx: 0.02, hy: 1.38, hz: 0.30, atNock: 1, draw: 0, arrow: 1, onBow: 1 };
-const FULL = { u: 0.64, ty: -40, lx: -0.06, ly: 1.50, lz: 0.60, bp: 0, hx: DRAW[0], hy: DRAW[1], hz: DRAW[2], atNock: 0, draw: 1, arrow: 1, onBow: 1 };
+const NOCKED = { u: 0.40, ty: -30, lx: 0.02, ly: 1.38, lz: 0.42, bp: 5, hx: 0.02, hy: 1.38, hz: 0.30, atNock: 1, draw: 0, arrow: 1, onBow: 1, slide: 0 };
+const FULL = { u: 0.64, ty: -40, lx: -0.06, ly: 1.50, lz: 0.60, bp: 0, hx: DRAW[0], hy: DRAW[1], hz: DRAW[2], atNock: 0, draw: 1, arrow: 1, onBow: 1, slide: 0 };
 
 const CLIPS = [
   // Bow down at the left side, the right hand free, a slow look around.
@@ -107,13 +108,14 @@ const CLIPS = [
   // Run: the bow swings with the left arm, the right arm pumps.
   loopClip('run', 0.64, 16, t => withArrow(aimJoint(armAngles({ lz: 10, lx: -12 + 22 * Math.sin(t), flx: -50, rz: -10, rx: -12 - 28 * Math.sin(t), frx: -55 }, runBody(t)),
     'bow', rotX((22 + 6 * Math.sin(t)) * DEG)), ARROW_DOWN, HIDDEN)),
-  // Attack: ready -> hand to the quiver -> arrow out -> nock -> draw to the cheek -> hold ->
+  // Attack: ready -> hand to the quiver -> arrow pulled up out of it -> nock -> draw to the cheek -> hold ->
   // loose (the arrow vanishes, the string snaps back) -> ready. Looped while shooting.
   loopClip('attack', 1.5, 30, (t) => {
     const p = tween(t / (2 * Math.PI), [
       READY,
-      { ...READY, u: 0.16, ty: -10, ly: 1.20, bp: 35, hx: -0.14, hy: 1.58, hz: -0.20 },
-      { ...READY, u: 0.22, ty: -10, ly: 1.20, bp: 35, hx: -0.14, hy: 1.62, hz: -0.16, arrow: 1 },
+      { ...READY, u: 0.11, ty: -10, ly: 1.20, bp: 35, hx: -0.08, hy: 1.54, hz: -0.17 },
+      { ...READY, u: 0.13, ty: -10, ly: 1.20, bp: 35, hx: -0.08, hy: 1.54, hz: -0.17, arrow: 1 },
+      { ...READY, u: 0.23, ty: -10, ly: 1.20, bp: 35, hx: -0.15, hy: 1.72, hz: -0.17, arrow: 1 },
       NOCKED,
       { ...NOCKED, u: 0.45, draw: 1 },
       FULL,
@@ -135,7 +137,10 @@ const CLIPS = [
     reach(pose, 'armR', 'foreR', lerp([p.hx, p.hy, p.hz], rest, p.atNock), [-1, 0.1, -0.8], HAND);
     const fist = worldOf(pose, J.arrow).p;
     placeJoint(pose, 'nock', lerp(rest, fist, p.draw));
-    return withArrow(pose, fromTo([0, 1, 0], lerp(ARROW_UP, norm(sub(grip, fist)), p.onBow)), [p.arrow, p.arrow, p.arrow]);
+    // In the quiver the arrow points down its axis; on the bow it lies just above the bow fist.
+    const inQuiver = qrot(rotY(p.ty * DEG), qrot(QUIVER_Q, [0, -1, 0]));
+    const onString = norm(sub(add(grip, qrot(bowAim, [0, LIFT, 0])), fist));
+    return withArrow(pose, fromTo([0, 1, 0], norm(lerp(inQuiver, onString, p.onBow))), [p.arrow, p.arrow, p.arrow], p.slide);
   }),
   // Death: the knees buckle, then he falls on his back and stays there (play with loop: false).
   onceClip('death', 1.3, 13, (u) => {
