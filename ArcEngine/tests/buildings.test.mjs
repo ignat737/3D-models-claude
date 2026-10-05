@@ -112,3 +112,42 @@ test('ворота частокола: секция 10 м вместо сегм�
   assert.ok(blocks(closed).length >= 20, 'створки закрыты');
   assert.equal(blocks(open).filter(p => p.s[0] > 0.2 && p.s[2] < 1).length, 0, 'в открытом проёме нет досок поперёк');
 });
+
+test('ель: 7,7 м, крона шире ствола, ярусы сужаются кверху, стоит на оси, лежит в 3D-models-plants', () => {
+  const spruce = BUILDINGS.find(b => b.name === 'spruce');
+  assert.ok(spruce && spruce.folder === '3D-models-plants');
+  assert.ok(outOf(spruce).endsWith('3D-models-plants' + (outOf(spruce).includes('/') ? '/' : '\\') + 'spruce.glb'));
+  const { gltf } = parseGlb(buildGlb(spruce));
+  const { min, max } = gltf.accessors[gltf.meshes[0].primitives[0].attributes.POSITION];
+  assert.ok(Math.abs(max[1] - 7.7) < 1e-5, 'высота 7,7 м');
+  assert.ok(max[0] - min[0] > 4 && Math.abs(max[0] + min[0]) < 0.3 && Math.abs(max[2] + min[2]) < 0.3, 'крона 4+ м, ось дерева в центре');
+  const tiers = spruce.parts.filter(p => p.h && p.r[0] > 0.8 && p.color.startsWith('needles'));
+  assert.ok(tiers.length >= 5);
+  for (let i = 1; i < tiers.length; i++) assert.ok(tiers[i].r[0] < tiers[i - 1].r[0] && tiers[i].c[1] > tiers[i - 1].c[1], 'ярусы сужаются и поднимаются');
+});
+
+function bounds(b) {
+  const { gltf } = parseGlb(buildGlb(b));
+  return gltf.accessors[gltf.meshes[0].primitives[0].attributes.POSITION];
+}
+
+test('дуб: 6,9 м, крона шире 6 м и шире ствола в 8+ раз, листва трёх оттенков, лежит в 3D-models-plants', () => {
+  const oak = BUILDINGS.find(b => b.name === 'oak');
+  assert.ok(oak && oak.folder === '3D-models-plants');
+  const { min, max } = bounds(oak);
+  assert.ok(Math.abs(max[1] - 6.925) < 1e-3, 'высота 6,9 м');
+  assert.ok(max[0] - min[0] > 6 && max[2] - min[2] > 5, 'крона шире 6 м');
+  const trunk = oak.parts.find(p => p.color === 'bark' && p.h > 1.5);
+  assert.ok((max[0] - min[0]) / (2 * trunk.r[0]) > 6, 'ствол тонкий рядом с кроной');
+  assert.ok(new Set(oak.parts.filter(p => p.color.startsWith('leaves')).map(p => p.color)).size === 3);
+});
+
+test('сосна: 8,7 м, ствол голый до 5 м, крона наверху и уже, чем у дуба', () => {
+  const pine = BUILDINGS.find(b => b.name === 'pine'), oak = BUILDINGS.find(b => b.name === 'oak');
+  assert.ok(pine && pine.folder === '3D-models-plants');
+  const { min, max } = bounds(pine), o = bounds(oak);
+  assert.ok(Math.abs(max[1] - 8.7) < 1e-3, 'высота 8,7 м');
+  assert.ok(max[1] > o.max[1] + 1.5 && max[0] - min[0] < o.max[0] - o.min[0], 'выше и уже дуба');
+  const crown = pine.parts.filter(p => p.color.startsWith('needles'));
+  assert.ok(crown.length >= 4 && crown.every(p => p.c[1] - p.h / 2 > 5), 'иглы только выше 5 м');
+});

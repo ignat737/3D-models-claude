@@ -153,6 +153,7 @@ node tools/unit-preview.mjs peasant-house --with=spearman --pose=20   # a unit b
   Parts have no `joint`; `buildGlb` writes plain POSITION/NORMAL/TEXCOORD_0, no skin, no animations.
   A new building is a file there plus a line in `BUILDINGS` of `tools/make-buildings.mjs`; `tests/buildings.test.mjs` covers it.
   Walls and fences (`tools/defense/*.mjs`: `palisade-segment`, 10 m along X, chains end to end; `palisade-tower`, 3 x 3 m centred on the wall line, an archers' deck at 3.6 m, any segment butts against any of its faces; `palisade-gate` and `palisade-gate-open`, a 10 m section that replaces a segment, one description `palisade-gate.mjs` for both: leaves closed / swung inward) are the same kind of model with `folder: '3D-models-defense'` and go to `3D-models/3D-models-defense/`.
+  Plants (`tools/plants/*.mjs`: `spruce` 7.7 m, `oak` 6.9 m with a 6 m crown, `pine` 8.7 m with a small crown on a bare trunk; all round about Y, 280-470 triangles) are the same with `folder: '3D-models-plants'` -> `3D-models/3D-models-plants/`.
 - Model space: meters, feet at y = 0 and origin at the centre of the footprint, the front (door) faces +Z.
 - A gable triangle is a 3-sided frustum turned by `rotZ(90°)` (apex up): height 1.5 r, base 1.732 r times `sq`.
   A sloped slab is a box with `q: rotX(±pitch)` about its own centre; a beam in the plane of a gable is a box turned by `rotX(atan2(-dy, dz))`.
