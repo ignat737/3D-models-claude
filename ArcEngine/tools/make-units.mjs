@@ -1,4 +1,4 @@
-// make-units.mjs — low-poly skinned unit models for a strategy game: 3D-models/<unit>.glb.
+// make-units.mjs — low-poly skinned unit models for a strategy game: 3D-models/3D-models-units/<unit>.glb.
 // Each unit is described in tools/units/<unit>.mjs (joints, parts, palette, clips) and built by
 // tools/unit-glb.mjs into one mesh + one palette material (one draw call per unit).
 //
@@ -21,7 +21,7 @@ import troll from './units/troll.mjs';
 import wolf from './units/wolf.mjs';
 
 const ROOT = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), '..');
-const OUT_DIR = path.join(ROOT, '3D-models');
+const OUT_DIR = path.join(ROOT, '3D-models', '3D-models-units');
 const UNITS = [swordsman, archer, spearman, orc, goblin, troll, horse, mountedSwordsman, wolf, goblinWolfRider];
 const outOf = unit => path.join(OUT_DIR, unit.name + '.glb');
 

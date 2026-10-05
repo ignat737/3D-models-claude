@@ -1,4 +1,4 @@
-// unit-preview.mjs — a picture of a unit from 3D-models/ in the real game scene (toon shader,
+// unit-preview.mjs — a picture of a unit from 3D-models/3D-models-units/ in the real game scene (toon shader,
 // outline, shadows, terrain), rendered by headless Chrome (tools/browser.mjs): the way to LOOK
 // at a unit without the Browser pane. Also runs Debug3D.lint() and fails on its errors.
 //

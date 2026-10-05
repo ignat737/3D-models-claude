@@ -17,49 +17,49 @@ GLB со скелетом и клипами анимации, **один меш 
 | `wolf.glb` | волк: серая шерсть с тёмной «мантией» по хребту, светлые лапы и грудь, янтарные глаза, клыки, ремень на плечах и ошейник цвета команды; нижняя челюсть на своей кости — открывает пасть в прыжке. Высота в холке 0,98 м, длина 1,7 м (хвост — ещё около 0,17 м) | 528 | 13 | `idle`, `run`, `attack`, `death` |
 | `goblin-wolf-rider.glb` | гоблин-копьеметатель верхом на волке одним файлом: `wolf.glb` с `goblin.glb` на спине, один меш, один материал, один скелет (25 костей, кости гоблина с префиксом `rider_`). Гоблин сидит в седле жёстко, но не статуей: осматривается, пружинит на бегу, колет дротиком в прыжке и мечет дротики с места и на скаку. Клипы волка плюс два броска | 1228 | 25 | `idle`, `run`, `attack`, `throw`, `runThrow`, `death` |
 
-![Мечник: стойка и удар](previews/swordsman.png)
+![Мечник: стойка и удар](3D-models-units/previews/swordsman.png)
 
-![Отряд из 30 мечников с камеры RTS](previews/swordsman-squad.png)
+![Отряд из 30 мечников с камеры RTS](3D-models-units/previews/swordsman-squad.png)
 
-![Лучник: стойка и полное натяжение](previews/archer.png)
+![Лучник: стойка и полное натяжение](3D-models-units/previews/archer.png)
 
-![Отряд из 30 лучников с камеры RTS](previews/archer-squad.png)
+![Отряд из 30 лучников с камеры RTS](3D-models-units/previews/archer-squad.png)
 
-![Копейщик: стойка и выпад](previews/spearman.png)
+![Копейщик: стойка и выпад](3D-models-units/previews/spearman.png)
 
-![Отряд из 30 копейщиков с камеры RTS](previews/spearman-squad.png)
+![Отряд из 30 копейщиков с камеры RTS](3D-models-units/previews/spearman-squad.png)
 
-![Орк: стойка и удар топором](previews/orc.png)
+![Орк: стойка и удар топором](3D-models-units/previews/orc.png)
 
-![Отряд из 30 орков с камеры RTS](previews/orc-squad.png)
+![Отряд из 30 орков с камеры RTS](3D-models-units/previews/orc-squad.png)
 
-![Гоблин-копьеметатель: стойка и бросок](previews/goblin.png)
+![Гоблин-копьеметатель: стойка и бросок](3D-models-units/previews/goblin.png)
 
-![Отряд из 30 гоблинов с камеры RTS](previews/goblin-squad.png)
+![Отряд из 30 гоблинов с камеры RTS](3D-models-units/previews/goblin-squad.png)
 
-![Тролль: стойка и удар дубиной](previews/troll.png)
+![Тролль: стойка и удар дубиной](3D-models-units/previews/troll.png)
 
-![Отряд из 30 троллей с камеры RTS](previews/troll-squad.png)
+![Отряд из 30 троллей с камеры RTS](3D-models-units/previews/troll-squad.png)
 
-![Лошадь: стойка, галоп, атака со всадником и смерть](previews/horse.png)
+![Лошадь: стойка, галоп, атака со всадником и смерть](3D-models-units/previews/horse.png)
 
-![Отряд из 30 лошадей с камеры RTS](previews/horse-squad.png)
+![Отряд из 30 лошадей с камеры RTS](3D-models-units/previews/horse-squad.png)
 
-![Мечник верхом: стойка, удар с места, удар в галопе и падение](previews/horse-swordsman.png)
+![Мечник верхом: стойка, удар с места, удар в галопе и падение](3D-models-units/previews/horse-swordsman.png)
 
-![Отряд из 30 конных мечников с камеры RTS](previews/horse-swordsman-squad.png)
+![Отряд из 30 конных мечников с камеры RTS](3D-models-units/previews/horse-swordsman-squad.png)
 
-![Конный мечник одним файлом: стойка, удар с места, удар в галопе и падение](previews/mounted-swordsman.png)
+![Конный мечник одним файлом: стойка, удар с места, удар в галопе и падение](3D-models-units/previews/mounted-swordsman.png)
 
-![Отряд из 30 конных мечников одним файлом с камеры RTS](previews/mounted-swordsman-squad.png)
+![Отряд из 30 конных мечников одним файлом с камеры RTS](3D-models-units/previews/mounted-swordsman-squad.png)
 
-![Волк: стойка, бег, прыжок с укусом и смерть](previews/wolf.png)
+![Волк: стойка, бег, прыжок с укусом и смерть](3D-models-units/previews/wolf.png)
 
-![Отряд из 30 волков с камеры RTS](previews/wolf-squad.png)
+![Отряд из 30 волков с камеры RTS](3D-models-units/previews/wolf-squad.png)
 
-![Гоблин на волке: стойка, бросок с места, бросок на скаку, укол в прыжке и падение](previews/goblin-wolf-rider.png)
+![Гоблин на волке: стойка, бросок с места, бросок на скаку, укол в прыжке и падение](3D-models-units/previews/goblin-wolf-rider.png)
 
-![Отряд из 30 гоблинов на волках с камеры RTS](previews/goblin-wolf-rider-squad.png)
+![Отряд из 30 гоблинов на волках с камеры RTS](3D-models-units/previews/goblin-wolf-rider-squad.png)
 
 Рост людей — 1,75 м (с головным убором до 1,89), орка — 2,0 м (с ирокезом 2,03), гоблина — 1,6 м (кончики ушей), тролля — 2,5 м (рожки), лошади — 1,5 м в холке и 2,1 м до ушей, волка — 0,98 м в холке и 1,2 м до ушей, метры, +Y вверх, лицом к +Z (стандарт glTF).
 Открывается в Blender, Unity, Godot и любом просмотрщике glTF.
@@ -173,8 +173,8 @@ clips.play('death', { loop: false });
 node tools/make-units.mjs              # пересобрать все модели
 node tools/make-units.mjs swordsman    # только мечника
 node tools/make-units.mjs --check      # проверить, что файлы совпадают с генератором
-node tools/unit-preview.mjs swordsman          # previews/swordsman.png — снимок в сцене игры
-node tools/unit-preview.mjs swordsman --squad  # previews/swordsman-squad.png — отряд с камеры RTS
+node tools/unit-preview.mjs swordsman          # 3D-models-units/previews/swordsman.png — снимок в сцене игры
+node tools/unit-preview.mjs swordsman --squad  # 3D-models-units/previews/swordsman-squad.png — отряд с камеры RTS
 ```
 
 Юнит описан в `tools/units/<имя>.mjs` (кости, детали из коробок и усечённых конусов, палитра,

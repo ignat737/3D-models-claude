@@ -206,7 +206,7 @@ clips.play('attack', { loop: false, then: 'idle' });
   mount's joint node (the file's scale 100 and 90° turn are undone: origin at the joint, same
   nose, size = the mount's scale, so scale/rotate/move only the mount). Both keep their own clips.
   `false` — no such joint. `dismount(rider)` leaves the rider where it stands; dispose of the
-  mount takes a seated rider with it, dismount first. The `horse.glb` of `3D-models/` has `saddle`
+  mount takes a seated rider with it, dismount first. The `horse.glb` of `3D-models/3D-models-units/` has `saddle`
   (skill `units`).
 - A model placed in the editor: `rec = app.location.objects.find(o => o.def.name === 'character')`,
   `Model3D.clips(rec.mesh)` — `rec.mesh` is null until the file has loaded (`rec.loaded`).
