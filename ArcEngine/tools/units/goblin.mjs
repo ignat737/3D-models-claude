@@ -12,6 +12,7 @@ const { BODY, FIST_R, HAND, S, limbs, grow } = scaledBody(0.8, 0.88, 0.8);
 const GRIP = 0.748;   // butt -> right fist along the shaft (the fist height: the bind butt touches y = 0)
 const SINK = 0.02;    // a planted butt goes this deep: the ground under it may slope away
 const HIPS = 0.88 * 0.90;
+const HEAD_SCALE = 0.85;
 const JOINTS = [...BODY, { name: 'spear', at: FIST_R, parent: B.foreR }];
 const { J, worldOf, aimJoint, reach } = rig(JOINTS);
 
@@ -78,7 +79,12 @@ const PARTS = [
   { c: spearAt(0.43), h: 0.06, r: [0.022, 0.028], n: 6, joint: J.spear, color: 'steel' },
   { c: spearAt(0.49), h: 0.05, r: [0.02, 0.042], n: 4, sq: 0.25, joint: J.spear, color: 'blade' },
   { c: spearAt(0.615), h: 0.20, r: [0.042, 0.003], n: 4, sq: 0.25, joint: J.spear, color: 'blade' },
-];
+].map(p => p.joint === B.head ? {
+  ...p,
+  // Scale every head feature around the neck joint, keeping the head attached to the body.
+  c: p.c.map((v, i) => BODY[B.head].at[i] + (v - BODY[B.head].at[i]) * HEAD_SCALE),
+  s: p.s.map(v => v * HEAD_SCALE),
+} : p);
 
 // Hidden by a tiny scale, never 0: a zero-scaled skinned normal normalizes to NaN.
 const HIDDEN = 0.02;
@@ -123,7 +129,7 @@ const CLIPS = [
   }),
   // Attack: guard -> draw back with the torso turned right -> hurl with a lunge -> follow through
   // -> reach behind for the next javelin -> guard.
-  loopClip('attack', 0.9, FRAMES, (t) => {
+  loopClip('attack', 1.5, FRAMES, (t) => {
     const i = Math.round(t / (2 * Math.PI) * FRAMES) % FRAMES;
     const p = tween(t / (2 * Math.PI), THROW);
     const pose = armAngles({ lz: 10, lx: p.lx, flx: p.flx, rz: 0, rx: 0, frx: 0 }, {
@@ -148,4 +154,4 @@ const CLIPS = [
   }),
 ];
 
-export default { name: 'goblin', joints: JOINTS, palette: PALETTE, parts: PARTS, clips: CLIPS, preview: 'idle@0.6,attack@0.3,attack@0.45' };
+export default { name: 'goblin', joints: JOINTS, palette: PALETTE, parts: PARTS, clips: CLIPS, preview: 'idle@0.6,attack@0.5,attack@0.75' };
