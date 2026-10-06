@@ -128,7 +128,7 @@ const CLIPS = [
   }),
   // Attack: guard -> draw back with the torso turned right -> hurl with a lunge -> follow through
   // -> reach behind for the next javelin -> guard.
-  loopClip('attack', 0.9, FRAMES, (t) => {
+  loopClip('attack', 1.5, FRAMES, (t) => {
     const i = Math.round(t / (2 * Math.PI) * FRAMES) % FRAMES;
     const p = tween(t / (2 * Math.PI), THROW);
     const pose = armAngles({ lz: 10, lx: p.lx, flx: p.flx, rz: 0, rx: 0, frx: 0 }, {
@@ -153,4 +153,4 @@ const CLIPS = [
   }),
 ];
 
-export default { name: 'goblin', joints: JOINTS, palette: PALETTE, parts: PARTS, clips: CLIPS, preview: 'idle@0.6,attack@0.3,attack@0.45' };
+export default { name: 'goblin', joints: JOINTS, palette: PALETTE, parts: PARTS, clips: CLIPS, preview: 'idle@0.6,attack@0.5,attack@0.8' };
