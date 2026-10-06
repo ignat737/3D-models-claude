@@ -151,3 +151,39 @@ test('сосна: 8,7 м, ствол голый до 5 м, крона навер
   const crown = pine.parts.filter(p => p.color.startsWith('needles'));
   assert.ok(crown.length >= 4 && crown.every(p => p.c[1] - p.h / 2 > 5), 'иглы только выше 5 м');
 });
+
+test('каменные стена, башня и ворота: секции по 10 м, зубцы, боевой ход, арка, цвет команды', () => {
+  const by = n => BUILDINGS.find(b => b.name === n);
+  const wall = by('stone-wall-segment'), tower = by('stone-tower'), gate = by('stone-gate'), open = by('stone-gate-open');
+  for (const b of [wall, tower, gate, open]) {
+    assert.ok(b && b.folder === '3D-models-defense', b && b.name);
+    assert.ok(b.parts.some(p => p.color === 'team') && b.parts.some(p => p.color === 'teamDark'), b.name + ': цвет команды');
+  }
+  const bounds = b => {
+    const { gltf } = parseGlb(buildGlb(b));
+    return gltf.accessors[gltf.meshes[0].primitives[0].attributes.POSITION];
+  };
+  for (const b of [wall, gate, open]) {
+    const { min, max } = bounds(b);
+    assert.ok(Math.abs(min[0] + 5) < 1e-5 && Math.abs(max[0] - 5) < 1e-5, b.name + ': от -5 до +5 м, стыкуется со стеной');
+  }
+  const merlons = b => b.parts.filter(p => p.s && p.s[0] === 1.0 && p.s[1] === 0.75);
+  assert.equal(merlons(wall).length, 6, 'шесть зубцов на секции стены');
+  assert.equal(merlons(gate).length, 6, 'боевой ход идёт поверх ворот');
+  assert.ok(Math.abs(bounds(wall).max[1] - 6.68) < 0.1 && bounds(wall).max[1] > bounds(by('palisade-segment')).max[1] + 2, 'каменная стена выше частокола вместе с его вымпелом');
+
+  // The tower: 4.2 m square on the wall line, a platform with a crenellated parapet above the wall walk.
+  const { min, max } = bounds(tower);
+  assert.ok(Math.abs(min[0] + max[0]) < 1e-5 && Math.abs(min[2] + max[2]) < 0.3, 'башня центрирована на оси стены (ступень двери выступает на -Z)');
+  const slab = tower.parts.find(p => p.s && p.s[0] > 5 && p.s[1] < 0.3 && p.color === 'stone' && p.c[1] > 7.5);
+  assert.ok(slab, 'плита площадки с выносом на консолях');
+  assert.ok(slab.c[1] + slab.s[1] / 2 > 5.4 + 1.5, 'площадка выше боевого хода стены минимум на 1,5 м');
+  assert.ok(tower.parts.filter(p => p.s && p.s[1] === 0.75 && Math.max(p.s[0], p.s[2]) === 0.9).length === 8, 'зубцы на всех четырёх сторонах');
+  assert.ok(tower.parts.some(p => p.color === 'wood' && p.s && p.s[1] > 2), 'дверь');
+
+  // The gate: an arch of 11 voussoirs; closed leaves fill the opening, open ones leave it free.
+  assert.equal(gate.parts.filter(p => p.q && p.s && p.s[0] === 0.45).length, 11, 'арка из 11 клиньев');
+  const planks = b => b.parts.filter(p => p.s && !p.q && ['wood', 'woodDark', 'woodLight'].includes(p.color) && Math.abs(p.c[0]) < 2.1 && p.s[0] > 0.15 && p.s[1] > 0.5);
+  assert.equal(planks(gate).length, 22, 'доски створок закрывают проём');
+  assert.equal(planks(open).length, 0, 'в открытом проёме досок нет');
+});

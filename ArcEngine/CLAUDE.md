@@ -132,7 +132,7 @@ tools/            dev-server.mjs, build.mjs, asset-scan.mjs, zip.mjs, check.mjs 
 3D-models/        3D-models-units/ — модели юнитов (GLB: один меш, один материал-палитра, клипы idle/run/attack/death; лошадь — idle, run, attack, runAttack, death и кость saddle; mounted-swordsman — всадник на лошади одним файлом),
                   генерируются tools/make-units.mjs; в игру — копией в assets/models/ (README.md);
                   3D-models-buildings/ — статичные здания (peasant-house.glb, barracks.glb), генерируются tools/make-buildings.mjs;
-                  3D-models-defense/ — укрепления (palisade-segment.glb — частокол 10 м, palisade-tower.glb — башня со стрелковой площадкой, palisade-gate.glb и palisade-gate-open.glb — ворота закрытые и открытые), тот же генератор (tools/defense/*.mjs)
+                  3D-models-defense/ — укрепления (palisade-segment.glb — частокол 10 м, palisade-tower.glb — башня со стрелковой площадкой, palisade-gate.glb и palisade-gate-open.glb — ворота закрытые и открытые; каменные близнецы stone-wall-segment, stone-tower, stone-gate, stone-gate-open), тот же генератор (tools/defense/*.mjs)
 tsconfig.json     проверка типов игры; globals.d.ts — window.app, material.arcToon, записи объектов
 tests/            *.test.mjs (node --test): Store, heightAt, сканер ассетов, запись редактора, звук,
                   связка скиллов; browser-scripts.mjs — скрипты игры в node:vm + пустышка Babylon
