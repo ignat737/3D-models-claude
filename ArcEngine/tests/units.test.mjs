@@ -5,10 +5,11 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { test } from 'node:test';
 import { IK_MISSES, UNITS, buildGlb, buildMesh, outOf } from '../tools/make-units.mjs';
-import { add, qconj, qrot, rig, sub } from '../tools/unit-glb.mjs';
+import { add, dot, qconj, qrot, rig, sub } from '../tools/unit-glb.mjs';
 import { extentY } from '../tools/units/horse.mjs';
 import { SCALE, extentY as wolfExtentY } from '../tools/units/wolf.mjs';
 import { riderMinY } from '../tools/units/goblin-wolf-rider.mjs';
+import { HAND } from '../tools/units/humanoid.mjs';
 
 function parseGlb(buf) {
   assert.equal(buf.toString('latin1', 0, 4), 'glTF');
@@ -129,6 +130,137 @@ test('юниты: имена уникальны, у каждого поле prev
 const horseUnit = () => UNITS.find(u => u.name === 'horse');
 const swordsmanUnit = () => UNITS.find(u => u.name === 'swordsman');
 const poseAt = (clip, f) => Object.fromEntries([...clip.tracks].map(([k, v]) => [k, v[f]]));
+const drawingFist = (worldOf, J, pose) => {
+  const fore = worldOf(pose, J.foreR);
+  return add(fore.p, qrot(fore.q, [0, -HAND, 0]));
+};
+test('лучник: рука поднимается над головой, берёт стрелу сзади и возвращается по той же траектории', () => {
+  const unit = UNITS.find(u => u.name === 'archer'), clip = unit.clips.find(c => c.name === 'attack');
+  const { J, worldOf } = rig(unit.joints);
+  const hand = f => drawingFist(worldOf, J, poseAt(clip, f));
+  assert.ok(hand(10)[1] > 1.82, 'кисть над капюшоном до движения за голову');
+  assert.ok(hand(13)[2] < -0.25 && hand(16)[2] < -0.2, 'кисть за головой у колчана');
+  for (let f = 1; f <= 10; f++) assert.ok(hand(f)[1] >= hand(f - 1)[1], 'подъём без движения вниз');
+  for (let f = 0; f <= 16; f++) {
+    for (const joint of ['foreR', 'fist']) {
+      const a = joint === 'fist' ? hand(f) : worldOf(poseAt(clip, f), J[joint]).p;
+      const b = joint === 'fist' ? hand(34 - f) : worldOf(poseAt(clip, 34 - f), J[joint]).p;
+      assert.ok(Math.hypot(...sub(a, b)) < 1e-6, `кадр ${f}: ${joint} повторяет обратный путь`);
+    }
+  }
+  const quiver = unit.parts.find(p => p.color === 'feather' && p.pivot);
+  const torso = worldOf(poseAt(clip, 16), J.torso);
+  const tip = add(quiver.pivot, qrot(quiver.q, sub(quiver.c, quiver.pivot)));
+  const worldTip = add(torso.p, qrot(torso.q, sub(tip, unit.joints[J.torso].at)));
+  assert.ok(Math.hypot(...sub(hand(16), worldTip)) < 0.08, 'кисть у оперения стрел в колчане');
+});
+
+test('лучник: локоть сгибается без скручивания предплечья, рука обходит голову при доставании стрелы', () => {
+  const unit = UNITS.find(u => u.name === 'archer'), clip = unit.clips.find(c => c.name === 'attack');
+  const { J, worldOf } = rig(unit.joints);
+  const boxes = unit.parts.filter(p => p.s && p.joint === J.head);
+  for (let f = 0; f < clip.times.length; f++) {
+    const pose = poseAt(clip, f), q = pose['foreR.rotation'];
+    assert.ok(Math.abs(q[1]) < 1e-6 && Math.abs(q[2]) < 1e-6 && q[0] <= 0, `кадр ${f}: сгибание локтя в одной плоскости`);
+    if (f > 34) continue;
+    const elbow = worldOf(pose, J.foreR).p, hand = drawingFist(worldOf, J, pose), head = worldOf(pose, J.head);
+    for (let a = 0; a <= 1; a += 0.025) {
+      const pt = add(elbow, sub(hand, elbow).map(v => v * a));
+      const local = add(qrot(qconj(head.q), sub(pt, head.p)), unit.joints[J.head].at);
+      for (const b of boxes) {
+        const depth = Math.min(...[0, 1, 2].map(k => b.s[k] / 2 + 0.05 - Math.abs(local[k] - b.c[k])));
+        assert.ok(depth <= 0, `кадр ${f}: предплечье пересекает голову`);
+      }
+    }
+    if (f < 18) continue;
+    const arrow = worldOf(pose, J.arrow);
+    for (let y = 0; y <= 0.73; y += 0.01) {
+      const pt = add(arrow.p, qrot(arrow.q, [0, y, 0]));
+      const local = add(qrot(qconj(head.q), sub(pt, head.p)), unit.joints[J.head].at);
+      for (const b of boxes) {
+        const depth = Math.min(...[0, 1, 2].map(k => b.s[k] / 2 + 0.008 - Math.abs(local[k] - b.c[k])));
+        assert.ok(depth <= 0, `кадр ${f}: стрела пересекает голову при возврате`);
+      }
+    }
+  }
+});
+
+test('лучник: стрела появляется наконечником вдоль колчана, оперение всех стрел белое', () => {
+  const unit = UNITS.find(u => u.name === 'archer'), clip = unit.clips.find(c => c.name === 'attack');
+  const { J, worldOf } = rig(unit.joints);
+  const quiver = unit.parts.find(p => p.pivot && p.h > 0.1), feathers = unit.parts.filter(p => p.pivot && p.s);
+  assert.equal(feathers.length, 3);
+  assert.ok(feathers.every(p => p.color === 'feather'), 'все три оперения цвета feather');
+  for (const f of [17, 18]) {
+    const pose = poseAt(clip, f), torso = worldOf(pose, J.torso);
+    const downQuiver = qrot(torso.q, qrot(quiver.q, [0, -1, 0]));
+    const arrow = worldOf(pose, J.arrow), axis = qrot(arrow.q, [0, 1, 0]);
+    assert.ok(dot(axis, downQuiver) > 0.99999, `кадр ${f}: наконечник направлен в колчан`);
+    const tip = add(arrow.p, qrot(arrow.q, [0, 0.73 * pose['arrow.scale'][1], 0]));
+    const local = add(qrot(qconj(torso.q), sub(tip, torso.p)), unit.joints[J.torso].at);
+    const inQuiver = qrot(qconj(quiver.q), sub(local, quiver.pivot));
+    assert.ok(inQuiver[1] >= -quiver.h / 2, `кадр ${f}: наконечник выше дна колчана`);
+  }
+  for (const f of [21, 22, 23, 24]) {
+    const upward = qrot(worldOf(poseAt(clip, f), J.arrow).q, [0, 1, 0]);
+    assert.ok(upward[1] > 0.99999 && Math.abs(upward[0]) < 1e-6, `кадр ${f}: стрела вертикально вверх после извлечения`);
+  }
+  for (const f of [19, 20]) {
+    const turning = qrot(worldOf(poseAt(clip, f), J.arrow).q, [0, 1, 0]);
+    assert.ok(turning[2] < -0.5, `кадр ${f}: поворот вверх через пространство за головой`);
+  }
+  const front = qrot(worldOf(poseAt(clip, 29), J.arrow).q, [0, 1, 0]);
+  assert.ok(front[2] > 0.99, 'после подъёма стрела поворачивается вперёд к луку');
+});
+
+// Match glTF playback: shortest-path quaternion slerp and linear translation/scale. Sample
+// between baked keys too, including the arrowhead/fletching and a cylinder enclosing the hood.
+test('лучник: стрела обходит голову и капюшон между кадрами извлечения и поворота', () => {
+  const unit = UNITS.find(u => u.name === 'archer'), clip = unit.clips.find(c => c.name === 'attack');
+  const { J, worldOf } = rig(unit.joints), parts = unit.parts.filter(p => p.joint === J.head);
+  const slerp = (a, b, t) => {
+    let d = a.reduce((s, v, k) => s + v * b[k], 0);
+    if (d < 0) { b = b.map(v => -v); d = -d; }
+    if (d > 0.9995) {
+      const q = a.map((v, k) => v + (b[k] - v) * t), length = Math.hypot(...q);
+      return q.map(v => v / length);
+    }
+    const angle = Math.acos(Math.min(1, d)), sine = Math.sin(angle);
+    return a.map((v, k) => (v * Math.sin((1 - t) * angle) + b[k] * Math.sin(t * angle)) / sine);
+  };
+  for (let f = 16; f < 39; f++) for (let t = 0; t < 1; t += 0.125) {
+    const pose = Object.fromEntries([...clip.tracks].map(([key, values]) => [key,
+      key.endsWith('.rotation') ? slerp(values[f], values[f + 1], t) : values[f].map((v, k) => v + (values[f + 1][k] - v) * t)]));
+    const arrow = worldOf(pose, J.arrow), head = worldOf(pose, J.head), scale = pose['arrow.scale'][1];
+    for (let y = 0; y <= 0.73; y += 0.005) {
+      const radius = (y < 0.14 ? 0.023 : y > 0.66 ? 0.02 : 0.008) * scale;
+      const pt = add(arrow.p, qrot(arrow.q, [0, y * scale, 0]));
+      const local = add(qrot(qconj(head.q), sub(pt, head.p)), unit.joints[J.head].at);
+      for (const p of parts) {
+        const depth = p.s
+          ? Math.min(...[0, 1, 2].map(k => p.s[k] / 2 + radius - Math.abs(local[k] - p.c[k])))
+          : Math.min(p.h / 2 + radius - Math.abs(local[1] - p.c[1]), Math.max(...p.r) + radius - Math.hypot(local[0] - p.c[0], local[2] - p.c[2]));
+        assert.ok(depth <= 0, `кадр ${f + t}: стрела касается ${p.color} головы/капюшона`);
+      }
+    }
+  }
+});
+
+test('лучник: тетива остаётся ненатянутой до возврата руки и установки стрелы', () => {
+  const unit = UNITS.find(u => u.name === 'archer'), clip = unit.clips.find(c => c.name === 'attack');
+  const { J, worldOf } = rig(unit.joints);
+  for (let f = 0; f <= 38; f++) {
+    const pose = poseAt(clip, f), bow = worldOf(pose, J.bow), nock = worldOf(pose, J.nock).p;
+    const rest = add(bow.p, qrot(bow.q, [0, 0, -0.12]));
+    assert.ok(Math.hypot(...sub(nock, rest)) < 1e-6, `кадр ${f}: тетива в исходном положении`);
+  }
+  const scale = clip.tracks.get('arrow.scale');
+  assert.equal(scale[16][0], 0.02, 'до захвата стрела скрыта');
+  assert.equal(scale[18][0], 1, 'после захвата стрела в руке');
+  assert.equal(scale[34][0], 1, 'стрела остаётся в руке после обратного пути');
+  const drawn = poseAt(clip, 48);
+  assert.ok(Math.hypot(...sub(worldOf(drawn, J.nock).p, worldOf(drawn, J.arrow).p)) < 1e-6, 'полное натяжение следует за кистью');
+});
 // Horse clip <-> rider clip: the same length and number of keys, played together.
 const PAIRS = [['idle', 'ride'], ['run', 'rideRun'], ['attack', 'rideAttack'], ['runAttack', 'rideRunAttack'], ['death', 'rideDeath']];
 
