@@ -42,6 +42,11 @@ const rod = (x, a, z) => {
   ];
 };
 
+const HEAD_SCALE = 0.85;                 // the head is 15% smaller than the first draft
+const NECK = [0, 1.29, 0];               // the head shrinks towards the base of the skull: it stays on the neck
+const shrink = v => v.map((x, k) => NECK[k] + (x - NECK[k]) * HEAD_SCALE);
+const smallHead = p => (p.joint !== B.head ? p : { ...p, c: shrink(p.c), s: p.s.map(x => x * HEAD_SCALE), ...(p.pivot ? { pivot: shrink(p.pivot) } : {}) });
+
 const PARTS = [
   // Head: skull, brow, big yellow eyes with pupils, a long nose, a jutting jaw with two teeth,
   // long ears swept up, a team headband with a knot.
@@ -78,7 +83,7 @@ const PARTS = [
   { c: spearAt(0.43), h: 0.06, r: [0.022, 0.028], n: 6, joint: J.spear, color: 'steel' },
   { c: spearAt(0.49), h: 0.05, r: [0.02, 0.042], n: 4, sq: 0.25, joint: J.spear, color: 'blade' },
   { c: spearAt(0.615), h: 0.20, r: [0.042, 0.003], n: 4, sq: 0.25, joint: J.spear, color: 'blade' },
-];
+].map(smallHead);
 
 // Hidden by a tiny scale, never 0: a zero-scaled skinned normal normalizes to NaN.
 const HIDDEN = 0.02;
