@@ -18,6 +18,9 @@ import palisadeTower from './defense/palisade-tower.mjs';
 import stoneWallSegment from './defense/stone-wall-segment.mjs';
 import stoneTower from './defense/stone-tower.mjs';
 import { closed as stoneGate, opened as stoneGateOpen } from './defense/stone-gate.mjs';
+import timberWallSegment from './defense/timber-wall-segment.mjs';
+import timberTower from './defense/timber-tower.mjs';
+import { closed as timberGate, opened as timberGateOpen } from './defense/timber-gate.mjs';
 import { closed as palisadeGate, opened as palisadeGateOpen } from './defense/palisade-gate.mjs';
 import oak from './plants/oak.mjs';
 import pine from './plants/pine.mjs';
@@ -25,7 +28,7 @@ import spruce from './plants/spruce.mjs';
 
 const ROOT = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), '..');
 const OUT_DIR = path.join(ROOT, '3D-models', '3D-models-buildings');
-const BUILDINGS = [peasantHouse, barracks, palisadeSegment, palisadeTower, palisadeGate, palisadeGateOpen, stoneWallSegment, stoneTower, stoneGate, stoneGateOpen, spruce, oak, pine];
+const BUILDINGS = [peasantHouse, barracks, palisadeSegment, palisadeTower, palisadeGate, palisadeGateOpen, stoneWallSegment, stoneTower, stoneGate, stoneGateOpen, timberWallSegment, timberTower, timberGate, timberGateOpen, spruce, oak, pine];
 // The triangle budget of every building (units: 1000). One draw call each, there are few of them.
 const MAX_TRIANGLES = 2500;
 const outOf = building => path.join(ROOT, '3D-models', building.folder || '3D-models-buildings', building.name + '.glb');
