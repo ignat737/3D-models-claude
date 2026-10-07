@@ -5,7 +5,7 @@
 // the mounted set seats him astride a horse: root at the saddle joint of horse.mjs
 // (Model3D.mount), feet in its stirrups. "ride", "rideRun", "rideAttack", "rideRunAttack" (looped)
 // and "rideDeath" (once) pair with the horse's idle, run, attack, runAttack and death — same length.
-import { DEG, add, lerp, qconj, qmul, qrot, rig, rotX, rotY, rotZ, sub, loopClip, onceClip } from '../unit-glb.mjs';
+import { DEG, add, lerp, qconj, qmul, qrot, rig, rotX, rotY, rotZ, sub, loopClip, onceClip, tween } from '../unit-glb.mjs';
 import { deathPose as horseDeath, saddleFrame } from './horse.mjs';
 import { B, BODY, FIST_L, FIST_R, HAND, SIDES, armAngles, deathBody, face, idleBody, limbs, runBody } from './humanoid.mjs';
 
@@ -111,26 +111,27 @@ const ride = (t, o) => {
   return aimJoint(pose, 'shield', qmul(rotY(-15 * DEG), rotX(o.lean * DEG)));
 };
 
-// Attack key poses, u in [0, 1) on the 18-frame grid: guard -> raise the sword outside the right
-// shoulder -> cock it behind the head -> chop forward (fast, over 2 frames) -> hold the arm fully
-// extended, blade level -> follow-through downwards -> back to guard. hx/hy/hz: the fist (model
-// space); pitch: the blade (positive tips it down; its yaw stays 0: aimJoint keeps it in the vertical
-// plane); ty/tx: torso turn and lean; step: lunge of the right foot; sh: the shield arm pulls back.
-// Between frames the pose is linear, so the extended hold keeps ty constant (the blade stays forward).
+// Mounted attack key poses (rideAttack, rideRunAttack), u in [0, 1) on the 18-frame grid: guard ->
+// raise the sword outside the right shoulder -> cock it behind the head -> chop forward (fast, over
+// 2 frames) -> hold the arm fully extended, blade level -> follow-through downwards -> back to guard.
+// hx/hy/hz: the fist (model space); pitch: the blade (positive tips it down; its yaw stays 0:
+// aimJoint keeps it in the vertical plane); ty/tx: torso turn and lean. Between frames the pose is
+// linear, so the extended hold keeps ty constant (the blade stays forward). The foot attack has its
+// own keys: FOOT_ATTACK.
 const F = k => k / 18;
 const SWORD_ATTACK = [
-  { u: F(0), hx: -0.38, hy: 1.18, hz: 0.24, pitch: -45, ty: 0, tx: 4, step: 0, sh: 0, ext: 0 },
-  { u: F(2), hx: -0.42, hy: 1.50, hz: 0.10, pitch: -90, ty: -10, tx: 0, step: 0, sh: 0.3, ext: 0 },
-  { u: F(4), hx: -0.50, hy: 1.76, hz: -0.12, pitch: -140, ty: -28, tx: -8, step: 0, sh: 0.6, ext: 0 },
-  { u: F(6), hx: -0.52, hy: 1.78, hz: -0.16, pitch: -150, ty: -34, tx: -10, step: 0, sh: 0.8, ext: 0 },
-  { u: F(7), hx: -0.36, hy: 1.68, hz: 0.20, pitch: -100, ty: -15, tx: 0, step: 0.3, sh: 0.8, ext: 0 },
-  { u: F(8), hx: -0.24, hy: 1.52, hz: 0.44, pitch: -45, ty: 4, tx: 8, step: 0.8, sh: 1, ext: 0.6 },
-  { u: F(9), hx: -0.17, hy: 1.40, hz: 0.58, pitch: -4, ty: 12, tx: 10, step: 1, sh: 1, ext: 1 },
-  { u: F(10), hx: -0.17, hy: 1.38, hz: 0.58, pitch: 0, ty: 12, tx: 10, step: 1, sh: 1, ext: 1 },
-  { u: F(11), hx: -0.17, hy: 1.34, hz: 0.57, pitch: 6, ty: 12, tx: 10, step: 1, sh: 1, ext: 1 },
-  { u: F(12), hx: -0.22, hy: 1.15, hz: 0.50, pitch: 40, ty: 10, tx: 12, step: 1, sh: 0.8, ext: 0.7 },
-  { u: F(14), hx: -0.34, hy: 1.12, hz: 0.34, pitch: 10, ty: 10, tx: 8, step: 0.6, sh: 0.4, ext: 0 },
-  { u: F(16), hx: -0.38, hy: 1.14, hz: 0.28, pitch: -30, ty: 3, tx: 5, step: 0.15, sh: 0.1, ext: 0 },
+  { u: F(0), hx: -0.38, hy: 1.18, hz: 0.24, pitch: -45, ty: 0, tx: 4, ext: 0 },
+  { u: F(2), hx: -0.42, hy: 1.50, hz: 0.10, pitch: -90, ty: -10, tx: 0, ext: 0 },
+  { u: F(4), hx: -0.50, hy: 1.76, hz: -0.12, pitch: -140, ty: -28, tx: -8, ext: 0 },
+  { u: F(6), hx: -0.52, hy: 1.78, hz: -0.16, pitch: -150, ty: -34, tx: -10, ext: 0 },
+  { u: F(7), hx: -0.36, hy: 1.68, hz: 0.20, pitch: -100, ty: -15, tx: 0, ext: 0 },
+  { u: F(8), hx: -0.24, hy: 1.52, hz: 0.44, pitch: -45, ty: 4, tx: 8, ext: 0.6 },
+  { u: F(9), hx: -0.17, hy: 1.40, hz: 0.58, pitch: -4, ty: 12, tx: 10, ext: 1 },
+  { u: F(10), hx: -0.17, hy: 1.38, hz: 0.58, pitch: 0, ty: 12, tx: 10, ext: 1 },
+  { u: F(11), hx: -0.17, hy: 1.34, hz: 0.57, pitch: 6, ty: 12, tx: 10, ext: 1 },
+  { u: F(12), hx: -0.22, hy: 1.15, hz: 0.50, pitch: 40, ty: 10, tx: 12, ext: 0.7 },
+  { u: F(14), hx: -0.34, hy: 1.12, hz: 0.34, pitch: 10, ty: 10, tx: 8, ext: 0 },
+  { u: F(16), hx: -0.38, hy: 1.14, hz: 0.28, pitch: -30, ty: 3, tx: 5, ext: 0 },
 ];
 SWORD_ATTACK.push({ ...SWORD_ATTACK[0], u: 1 });
 
@@ -165,33 +166,26 @@ const swingSword = (pose, p, seated = false) => {
   return aimJoint(pose, 'sword', rotX(p.pitch * DEG));
 };
 
-// On foot: a lunge. The front (right) thigh goes forward with the shin kept vertical, the left leg
-// back; the hips sink until the lower sole touches the ground.
-const SOLE = 0.47;
-const lungeBody = (p) => {
-  const pose = {
-    'hips.translation': [0, 0.90, 0],
-    'torso.rotation': qmul(rotY(p.ty * DEG), rotX(p.tx * DEG)),
-    'head.rotation': qmul(rotY(-0.7 * p.ty * DEG), rotX(-0.8 * p.tx * DEG)),
-    'legL.rotation': qmul(rotZ(3 * DEG), rotX(16 * DEG * p.step)),
-    'legR.rotation': qmul(rotZ(-3 * DEG), rotX(-32 * DEG * p.step)),
-    'shinL.rotation': rotX(24 * DEG * p.step),
-    'shinR.rotation': rotX(32 * DEG * p.step),
-  };
-  const lowest = Math.min(...['shinL', 'shinR'].map((name) => {
-    const w = worldOf(pose, J[name]);
-    return w.p[1] + qrot(w.q, [0, -SOLE, 0])[1];
-  }));
-  pose['hips.translation'] = [0, 0.90 - lowest, 0];
-  return pose;
-};
-
 // Cut forward in a vertical plane just outside the horse's head and neck, then recover.
 const mountedAttack = (t, lean, bob) => {
   const p = curve(t / (2 * Math.PI), SWORD_ATTACK);
   const pose = ride(0, { lean: lean + p.tx, sway: 0, ty: p.ty, look: -0.7 * p.ty, bob, arm: { ...SEATED, lx: -35 - lean } });
   return swingSword(pose, p, true);
 };
+
+// On foot: guard -> wind-up over the right shoulder (0.4) -> diagonal cut across to the front
+// left with a step of the right foot (0.58) -> follow-through -> guard. Arm angles (armAngles),
+// sx — the sword against the fist, ty/tx — torso turn and lean, hy — hips height.
+// At the wind-up rz is POSITIVE: on a raised arm rotZ flips meaning, and the old -25° tilted the
+// fist over the helmet, so the sword went through the head. +10° keeps it >= 4 cm outside.
+const FOOT_GUARD = { u: 0, rx: -20, rz: -10, frx: -55, sx: 20, ty: 0, tx: 4, hy: 0.90, step: 0 };
+const FOOT_ATTACK = [
+  FOOT_GUARD,
+  { u: 0.4, rx: -165, rz: 10, frx: -75, sx: 0, ty: -25, tx: -6, hy: 0.90, step: 0 },
+  { u: 0.58, rx: -45, rz: -5, frx: -8, sx: 80, ty: 22, tx: 14, hy: 0.88, step: 1 },
+  { u: 0.75, rx: -35, rz: -5, frx: -10, sx: 85, ty: 18, tx: 12, hy: 0.88, step: 1 },
+  { ...FOOT_GUARD, u: 1 },
+];
 
 // Thrown by the falling horse: sits through the buckle (u < 0.3), flies off over its back, lands
 // on his back on the ground beside it. The clip is in the saddle's frame, which rolls with the
@@ -222,12 +216,18 @@ const CLIPS = [
   // Run: shield up in front, the sword carried upright and swinging with the step.
   loopClip('run', 0.64, 16, t => aimJoint(arms({ lz: 10, lx: -20 + 6 * Math.sin(t), flx: -55, rz: -10, rx: -20 - 22 * Math.sin(t), frx: -60, sx: -25 }, runBody(t)),
     'shield', qmul(rotY(-15 * DEG), rotX(3 * DEG * Math.sin(2 * t))))),
-  // Attack: see SWORD_ATTACK. Looped: a unit in melee plays it over and over.
+  // Attack: see FOOT_ATTACK. Looped: a unit in melee plays it over and over.
   loopClip('attack', 0.9, 18, (t) => {
-    const p = curve(t / (2 * Math.PI), SWORD_ATTACK);
-    const pose = arms({ lz: 10 + 20 * p.sh, lx: -20 + 12 * p.sh, flx: -55, rz: 0, rx: 0, frx: 0, sx: 0 }, lungeBody(p));
-    swingSword(pose, p);
-    return aimJoint(pose, 'shield', qmul(rotY((-18 - 8 * p.step) * DEG), rotX(-4 * DEG)));
+    const p = tween(t / (2 * Math.PI), FOOT_ATTACK);
+    return aimJoint(arms({ lz: 10, lx: -20, flx: -55, rz: p.rz, rx: p.rx, frx: p.frx, sx: p.sx }, {
+      'hips.translation': [0, p.hy, 0],
+      'torso.rotation': qmul(rotY(p.ty * DEG), rotX(p.tx * DEG)),
+      'head.rotation': rotY(-0.7 * p.ty * DEG),
+      'legL.rotation': rotX(12 * DEG * p.step),
+      'legR.rotation': rotX(-18 * DEG * p.step),
+      'shinL.rotation': rotX(0),
+      'shinR.rotation': rotX(20 * DEG * p.step),
+    }), 'shield', qmul(rotY((-18 - 8 * p.step) * DEG), rotX(-4 * DEG)));
   }),
   // Death: the knees buckle, then he falls on his back and stays there (play with loop: false).
   onceClip('death', 1.3, 13, (u) => {
