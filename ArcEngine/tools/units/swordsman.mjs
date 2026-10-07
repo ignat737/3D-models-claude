@@ -7,14 +7,14 @@
 // and "rideDeath" (once) pair with the horse's idle, run, attack, runAttack and death — same length.
 import { DEG, add, lerp, qconj, qmul, qrot, rig, rotX, rotY, rotZ, sub, loopClip, onceClip, tween } from '../unit-glb.mjs';
 import { deathPose as horseDeath, saddleFrame } from './horse.mjs';
-import { B, BODY, FIST_L, FIST_R, SIDES, armAngles, deathBody, face, idleBody, limbs, runBody } from './humanoid.mjs';
+import { B, BODY, FIST_L, FIST_R, HAND, SIDES, armAngles, deathBody, face, idleBody, limbs, runBody } from './humanoid.mjs';
 
 const JOINTS = [
   ...BODY,
   { name: 'sword', at: FIST_R, parent: B.foreR },
   { name: 'shield', at: FIST_L, parent: B.foreL },   // centre grip in the left fist
 ];
-const { J, worldOf, aimJoint, pointJoint } = rig(JOINTS);
+const { J, worldOf, aimJoint, pointJoint, reach } = rig(JOINTS);
 
 // "team" and "teamDark" are the faction colours: recolour those two texels for another player.
 const PALETTE = [
@@ -111,18 +111,27 @@ const ride = (t, o) => {
   return aimJoint(pose, 'shield', qmul(rotY(-15 * DEG), rotX(o.lean * DEG)));
 };
 
-// Cut from the saddle: wind-up over the right shoulder (0.4), a cut across to the front left
-// (0.58), follow-through, guard. lean — the torso's forward lean all through.
+// Lift outside the right shoulder, then bring the fist forward for a forward downward cut. Pitch is
+// independent of the forearm: its mesh points along +Z after the bind rotation.
+const SWORD_ATTACK = [
+  { u: 0, hx: -0.38, hy: 1.18, hz: 0.24, pitch: -45, ty: 0, tx: 4, hyBody: 0.90, step: 0 },
+  { u: 0.4, hx: -0.50, hy: 1.72, hz: -0.12, pitch: -130, ty: -25, tx: -6, hyBody: 0.90, step: 0 },
+  { u: 0.5, hx: -0.37, hy: 1.58, hz: 0.34, pitch: -20, ty: -5, tx: 4, hyBody: 0.89, step: 0.45 },
+  { u: 0.6, hx: -0.26, hy: 1.22, hz: 0.44, pitch: 55, ty: 22, tx: 14, hyBody: 0.88, step: 1 },
+  { u: 0.76, hx: -0.28, hy: 1.12, hz: 0.38, pitch: 70, ty: 18, tx: 12, hyBody: 0.88, step: 1 },
+];
+SWORD_ATTACK.push({ ...SWORD_ATTACK[0], u: 1 });
+const swingSword = (pose, p, seated = false) => {
+  const target = [seated ? Math.min(p.hx, -0.43) : p.hx, p.hy + (seated ? SEAT - BODY[B.hips].at[1] : 0), p.hz * (seated ? 0.85 : 1)];
+  reach(pose, 'armR', 'foreR', target, [-1, -0.2, -0.6], HAND);
+  return aimJoint(pose, 'sword', rotX(p.pitch * DEG));
+};
+
+// Cut forward in a vertical plane just outside the horse's head and neck, then recover.
 const mountedAttack = (t, lean, bob) => {
-  const g = { u: 0, rx: -30, rz: -8, frx: -70, sx: -30, ty: 0, tx: 0 };
-  const p = tween(t / (2 * Math.PI), [
-    g,
-    { u: 0.4, rx: -165, rz: -30, frx: -75, sx: 0, ty: -26, tx: -8 },
-    { u: 0.58, rx: -50, rz: -34, frx: -12, sx: 80, ty: 22, tx: 8 },
-    { u: 0.75, rx: -42, rz: -30, frx: -14, sx: 85, ty: 18, tx: 6 },
-    { ...g, u: 1 },
-  ]);
-  return ride(0, { lean: lean + p.tx, sway: 0, ty: p.ty, look: -0.7 * p.ty, bob, arm: { ...SEATED, lx: -35 - lean, rx: p.rx, rz: p.rz, frx: p.frx, sx: p.sx } });
+  const p = tween(t / (2 * Math.PI), SWORD_ATTACK);
+  const pose = ride(0, { lean: lean + p.tx, sway: 0, ty: p.ty, look: -0.7 * p.ty, bob, arm: { ...SEATED, lx: -35 - lean } });
+  return swingSword(pose, p, true);
 };
 
 // Thrown by the falling horse: sits through the buckle (u < 0.3), flies off over its back, lands
@@ -154,26 +163,21 @@ const CLIPS = [
   // Run: shield up in front, the sword carried upright and swinging with the step.
   loopClip('run', 0.64, 16, t => aimJoint(arms({ lz: 10, lx: -20 + 6 * Math.sin(t), flx: -55, rz: -10, rx: -20 - 22 * Math.sin(t), frx: -60, sx: -25 }, runBody(t)),
     'shield', qmul(rotY(-15 * DEG), rotX(3 * DEG * Math.sin(2 * t))))),
-  // Attack: guard -> wind-up over the shoulder -> diagonal cut with a step of the right foot ->
+  // Attack: guard -> wind-up over the shoulder -> forward cut with a step of the right foot ->
   // follow-through -> guard. Looped: a unit in melee plays it over and over.
   loopClip('attack', 0.9, 18, (t) => {
-    const guard = { u: 0, rx: -20, rz: -10, frx: -55, sx: 20, ty: 0, tx: 4, hy: 0.90, step: 0 };
-    const p = tween(t / (2 * Math.PI), [
-      guard,
-      { u: 0.4, rx: -165, rz: -25, frx: -75, sx: 0, ty: -25, tx: -6, hy: 0.90, step: 0 },
-      { u: 0.58, rx: -45, rz: -5, frx: -8, sx: 80, ty: 22, tx: 14, hy: 0.88, step: 1 },
-      { u: 0.75, rx: -35, rz: -5, frx: -10, sx: 85, ty: 18, tx: 12, hy: 0.88, step: 1 },
-      { ...guard, u: 1 },
-    ]);
-    return aimJoint(arms({ lz: 10, lx: -20, flx: -55, rz: p.rz, rx: p.rx, frx: p.frx, sx: p.sx }, {
-      'hips.translation': [0, p.hy, 0],
+    const p = tween(t / (2 * Math.PI), SWORD_ATTACK);
+    const pose = arms({ lz: 10, lx: -20, flx: -55, rz: 0, rx: 0, frx: 0, sx: 0 }, {
+      'hips.translation': [0, p.hyBody, 0],
       'torso.rotation': qmul(rotY(p.ty * DEG), rotX(p.tx * DEG)),
       'head.rotation': rotY(-0.7 * p.ty * DEG),
       'legL.rotation': rotX(12 * DEG * p.step),
       'legR.rotation': rotX(-18 * DEG * p.step),
       'shinL.rotation': rotX(0),
       'shinR.rotation': rotX(20 * DEG * p.step),
-    }), 'shield', qmul(rotY((-18 - 8 * p.step) * DEG), rotX(-4 * DEG)));
+    });
+    swingSword(pose, p);
+    return aimJoint(pose, 'shield', qmul(rotY((-18 - 8 * p.step) * DEG), rotX(-4 * DEG)));
   }),
   // Death: the knees buckle, then he falls on his back and stays there (play with loop: false).
   onceClip('death', 1.3, 13, (u) => {

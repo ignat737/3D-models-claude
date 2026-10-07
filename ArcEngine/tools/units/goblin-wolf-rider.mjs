@@ -221,14 +221,14 @@ const CLIPS = [
   withRider(WOLF.idle, idleRider),
   withRider(WOLF.run, runRider),
   withRider(WOLF.attack, jabRider),
-  withRider(loopClip('throw', 1.0, THROW_FRAMES, wolfStand), throwRider(0)),
-  withRider(loopClip('runThrow', 1.0, THROW_FRAMES, wolfRunTwice), throwRider(8)),
+  withRider(loopClip('throw', 1.5, THROW_FRAMES, wolfStand), throwRider(0)),
+  withRider(loopClip('runThrow', 1.5, THROW_FRAMES, wolfRunTwice), throwRider(8)),
   withRider(WOLF.death),
 ];
 
 export default {
   name: 'goblin-wolf-rider', joints: JOINTS, palette: PALETTE, parts: PARTS, clips: CLIPS,
-  preview: 'idle@0.6,throw@0.45,runThrow@0.45,attack@0.42,death@1.1',
+  preview: 'idle@0.6,throw@0.675,runThrow@0.675,attack@0.42,death@1.1',
   previewGap: 70,
   maxTriangles: 1300,   // two models in one: wolf 528 + goblin 700
 };

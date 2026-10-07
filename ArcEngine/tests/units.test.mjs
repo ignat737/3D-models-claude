@@ -10,6 +10,7 @@ import { extentY } from '../tools/units/horse.mjs';
 import { SCALE, extentY as wolfExtentY } from '../tools/units/wolf.mjs';
 import { riderMinY } from '../tools/units/goblin-wolf-rider.mjs';
 import { HAND } from '../tools/units/humanoid.mjs';
+import { clashes, sampledPose } from './unit-collision.mjs';
 
 function parseGlb(buf) {
   assert.equal(buf.toString('latin1', 0, 4), 'glTF');
@@ -342,7 +343,7 @@ test('гоблин на волке: бросок — дротик исчезае
     const scale = clip.tracks.get('rider_spear.scale');
     if (!['throw', 'runThrow'].includes(clip.name)) { assert.equal(scale, undefined, clip.name); continue; }
     assert.equal(clip.times.length, 37);
-    assert.ok(Math.abs(clip.times[36] - 1) < 1e-9, clip.name + ': 1 с');
+    assert.ok(Math.abs(clip.times[36] - 1.5) < 1e-9, clip.name + ': 1,5 с');
     const shown = scale.map(v => v[0]);
     assert.ok(shown[0] === 1 && shown[36] === 1 && shown[19] === 1 && shown[20] < 0.1 && shown[30] < 0.1 && shown[31] === 1, clip.name);
     assert.ok(shown.every(v => v >= 0.02), 'не ноль: нулевая нормаль даёт NaN');
@@ -404,29 +405,36 @@ test('мечник верхом: ноги по бокам от седла, по�
   }
 });
 
-// The sword of a rider, sampled every 3 cm, against the horse's boxes (neck, head, body, saddle)
-// under the paired horse clip: it must stay clear in every frame while he is in the saddle.
-test('мечник верхом: меч не проходит сквозь лошадь ни в одном кадре атаки и бега', () => {
-  const horse = horseUnit(), sw = swordsmanUnit();
-  const H = rig(horse.joints), R = rig(sw.joints);
-  const boxes = horse.parts.filter(p => p.s && !['hoof', 'coatDark'].includes(p.color) && horse.joints[p.joint].name !== 'saddle' || (p.s && p.color === 'leather' && horse.joints[p.joint].name === 'saddle'));
-  for (const [h, r] of PAIRS.filter(([h]) => h !== 'death')) {
-    const hc = horse.clips.find(c => c.name === h), rc = sw.clips.find(c => c.name === r);
-    for (let f = 0; f < hc.times.length; f++) {
-      const hp = poseAt(hc, f), rp = poseAt(rc, f), S = H.worldOf(hp, H.J.saddle), sword = R.worldOf(rp, R.J.sword);
-      for (let y = -0.1; y <= 0.85; y += 0.03) {
-        const local = add(sword.p, qrot(sword.q, [0, y, 0]));
-        const pt = add(S.p, qrot(S.q, local));
-        for (const b of boxes) {
-          const w = H.worldOf(hp, b.joint);
-          let rel = add(qrot(qconj(w.q), sub(pt, w.p)), horse.joints[b.joint].at);
-          if (b.q) { const pv = b.pivot || b.c; rel = add(pv, qrot(qconj(b.q), sub(rel, pv))); }
-          const depth = Math.min(...[0, 1, 2].map(k => b.s[k] / 2 + 0.02 - Math.abs(rel[k] - b.c[k])));
-          assert.ok(depth <= 0, `${r} кадр ${f}: меч в ${horse.joints[b.joint].name} (${b.color}) на ${(depth * 100).toFixed(1)} см`);
-        }
-      }
+test('мечник: удар пешком и верхом направлен вперёд, без бокового разворота клинка', () => {
+  const unit = swordsmanUnit(), { J, worldOf } = rig(unit.joints);
+  for (const name of ['attack', 'rideAttack', 'rideRunAttack']) {
+    const clip = unit.clips.find(c => c.name === name);
+    for (let i = 0; i <= 16; i++) {
+      const u = 0.5 + 0.1 * i / 16, pose = sampledPose(clip, u * (clip.times.length - 1));
+      const direction = qrot(worldOf(pose, J.sword).q, [0, 0, 1]);
+      assert.ok(Math.abs(direction[0]) < direction[2] * Math.tan(5 * Math.PI / 180) && direction[2] > 0.55, name + ': клинок рубит вперёд');
     }
   }
+});
+
+test('мечник: рука и весь меч проходят снаружи головы и шлема при замахе и ударе', () => {
+  const unit = swordsmanUnit(), name = p => unit.joints[p.joint].name;
+  assert.deepEqual(clashes(unit, ['attack'],
+    p => ['armR', 'foreR', 'sword'].includes(name(p)), p => name(p) === 'head'), []);
+});
+
+test('мечник верхом: рука и весь меч не пересекают голову всадника при обоих ударах', () => {
+  const unit = UNITS.find(u => u.name === 'mounted-swordsman'), name = p => unit.joints[p.joint].name;
+  assert.deepEqual(clashes(unit, ['attack', 'runAttack'],
+    p => ['rider_armR', 'rider_foreR', 'rider_sword'].includes(name(p)), p => name(p) === 'rider_head'), []);
+});
+
+// Check the full blade, crossguard and grip in the combined skeleton, including between keys.
+// Sword parts point along +Z in bind, not +Y: testing the latter misses the real swing.
+test('мечник верхом: весь меч не проходит сквозь лошадь в кадрах и между кадрами атаки и бега', () => {
+  const unit = UNITS.find(u => u.name === 'mounted-swordsman'), name = p => unit.joints[p.joint].name;
+  assert.deepEqual(clashes(unit, ['idle', 'run', 'attack', 'runAttack'],
+    p => name(p) === 'rider_sword', p => !name(p).startsWith('rider_')), []);
 });
 
 test('мечник верхом: после смерти лошади лежит на земле рядом с ней, не под ней', () => {
