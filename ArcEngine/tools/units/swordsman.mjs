@@ -111,14 +111,16 @@ const ride = (t, o) => {
   return aimJoint(pose, 'shield', qmul(rotY(-15 * DEG), rotX(o.lean * DEG)));
 };
 
-// Lift outside the right shoulder, then bring the fist forward for a forward downward cut. Pitch is
-// independent of the forearm: its mesh points along +Z after the bind rotation.
+// Lift outside the right shoulder, then cut FORWARD: the arm swings through the shoulder height and
+// ends fully extended (the fist ~0.5 m from the shoulder, the blade level), then drops a little in
+// the follow-through. Pitch is independent of the forearm: its mesh points along +Z after the bind
+// rotation; positive pitch tips the blade down.
 const SWORD_ATTACK = [
   { u: 0, hx: -0.38, hy: 1.18, hz: 0.24, pitch: -45, ty: 0, tx: 4, hyBody: 0.90, step: 0 },
   { u: 0.4, hx: -0.50, hy: 1.72, hz: -0.12, pitch: -130, ty: -25, tx: -6, hyBody: 0.90, step: 0 },
-  { u: 0.5, hx: -0.37, hy: 1.58, hz: 0.34, pitch: -20, ty: -5, tx: 4, hyBody: 0.89, step: 0.45 },
-  { u: 0.6, hx: -0.26, hy: 1.22, hz: 0.44, pitch: 55, ty: 22, tx: 14, hyBody: 0.88, step: 1 },
-  { u: 0.76, hx: -0.28, hy: 1.12, hz: 0.38, pitch: 70, ty: 18, tx: 12, hyBody: 0.88, step: 1 },
+  { u: 0.47, hx: -0.34, hy: 1.58, hz: 0.30, pitch: -55, ty: -10, tx: 2, hyBody: 0.89, step: 0.45 },
+  { u: 0.6, hx: -0.17, hy: 1.40, hz: 0.58, pitch: -4, ty: 28, tx: 6, hyBody: 0.88, step: 1 },
+  { u: 0.76, hx: -0.18, hy: 1.30, hz: 0.57, pitch: 22, ty: 22, tx: 8, hyBody: 0.88, step: 1 },
 ];
 SWORD_ATTACK.push({ ...SWORD_ATTACK[0], u: 1 });
 const swingSword = (pose, p, seated = false) => {
