@@ -119,18 +119,18 @@ const ride = (t, o) => {
 // Between frames the pose is linear, so the extended hold keeps ty constant (the blade stays forward).
 const F = k => k / 18;
 const SWORD_ATTACK = [
-  { u: F(0), hx: -0.38, hy: 1.18, hz: 0.24, pitch: -45, ty: 0, tx: 4, step: 0, sh: 0 },
-  { u: F(2), hx: -0.42, hy: 1.50, hz: 0.10, pitch: -90, ty: -10, tx: 0, step: 0, sh: 0.3 },
-  { u: F(4), hx: -0.50, hy: 1.76, hz: -0.12, pitch: -140, ty: -28, tx: -8, step: 0, sh: 0.6 },
-  { u: F(6), hx: -0.52, hy: 1.78, hz: -0.16, pitch: -150, ty: -34, tx: -10, step: 0, sh: 0.8 },
-  { u: F(7), hx: -0.36, hy: 1.68, hz: 0.20, pitch: -100, ty: -15, tx: 0, step: 0.3, sh: 0.8 },
-  { u: F(8), hx: -0.24, hy: 1.52, hz: 0.44, pitch: -45, ty: 8, tx: 8, step: 0.8, sh: 1 },
-  { u: F(9), hx: -0.17, hy: 1.40, hz: 0.58, pitch: -4, ty: 28, tx: 12, step: 1, sh: 1 },
-  { u: F(10), hx: -0.17, hy: 1.38, hz: 0.58, pitch: 0, ty: 28, tx: 12, step: 1, sh: 1 },
-  { u: F(11), hx: -0.17, hy: 1.34, hz: 0.57, pitch: 6, ty: 28, tx: 12, step: 1, sh: 1 },
-  { u: F(12), hx: -0.22, hy: 1.15, hz: 0.50, pitch: 40, ty: 22, tx: 14, step: 1, sh: 0.8 },
-  { u: F(14), hx: -0.34, hy: 1.12, hz: 0.34, pitch: 10, ty: 10, tx: 8, step: 0.6, sh: 0.4 },
-  { u: F(16), hx: -0.38, hy: 1.14, hz: 0.28, pitch: -30, ty: 3, tx: 5, step: 0.15, sh: 0.1 },
+  { u: F(0), hx: -0.38, hy: 1.18, hz: 0.24, pitch: -45, ty: 0, tx: 4, step: 0, sh: 0, ext: 0 },
+  { u: F(2), hx: -0.42, hy: 1.50, hz: 0.10, pitch: -90, ty: -10, tx: 0, step: 0, sh: 0.3, ext: 0 },
+  { u: F(4), hx: -0.50, hy: 1.76, hz: -0.12, pitch: -140, ty: -28, tx: -8, step: 0, sh: 0.6, ext: 0 },
+  { u: F(6), hx: -0.52, hy: 1.78, hz: -0.16, pitch: -150, ty: -34, tx: -10, step: 0, sh: 0.8, ext: 0 },
+  { u: F(7), hx: -0.36, hy: 1.68, hz: 0.20, pitch: -100, ty: -15, tx: 0, step: 0.3, sh: 0.8, ext: 0 },
+  { u: F(8), hx: -0.24, hy: 1.52, hz: 0.44, pitch: -45, ty: 4, tx: 8, step: 0.8, sh: 1, ext: 0.6 },
+  { u: F(9), hx: -0.17, hy: 1.40, hz: 0.58, pitch: -4, ty: 12, tx: 10, step: 1, sh: 1, ext: 1 },
+  { u: F(10), hx: -0.17, hy: 1.38, hz: 0.58, pitch: 0, ty: 12, tx: 10, step: 1, sh: 1, ext: 1 },
+  { u: F(11), hx: -0.17, hy: 1.34, hz: 0.57, pitch: 6, ty: 12, tx: 10, step: 1, sh: 1, ext: 1 },
+  { u: F(12), hx: -0.22, hy: 1.15, hz: 0.50, pitch: 40, ty: 10, tx: 12, step: 1, sh: 0.8, ext: 0.7 },
+  { u: F(14), hx: -0.34, hy: 1.12, hz: 0.34, pitch: 10, ty: 10, tx: 8, step: 0.6, sh: 0.4, ext: 0 },
+  { u: F(16), hx: -0.38, hy: 1.14, hz: 0.28, pitch: -30, ty: 3, tx: 5, step: 0.15, sh: 0.1, ext: 0 },
 ];
 SWORD_ATTACK.push({ ...SWORD_ATTACK[0], u: 1 });
 
@@ -155,9 +155,13 @@ const curve = (u, stops) => {
   }
   return out;
 };
+const ARM = 0.549;   // shoulder -> fist with the arm straight (the full reach is 0.55 m)
 const swingSword = (pose, p, seated = false) => {
   const target = [seated ? Math.min(p.hx, -0.43) : p.hx, p.hy + (seated ? SEAT - BODY[B.hips].at[1] : 0), p.hz * (seated ? 0.85 : 1)];
-  reach(pose, 'armR', 'foreR', target, [-1, -0.2, -0.6], HAND);
+  // ext: the fist goes to the point straight ahead of the shoulder, the arm fully straight and
+  // in line with the blade (the shoulder moves with the torso, so it is taken from the pose).
+  const S = worldOf(pose, J.armR).p;
+  reach(pose, 'armR', 'foreR', lerp(target, [S[0], S[1], S[2] + ARM], p.ext), [-1, -0.2, -0.6], HAND);
   return aimJoint(pose, 'sword', rotX(p.pitch * DEG));
 };
 
