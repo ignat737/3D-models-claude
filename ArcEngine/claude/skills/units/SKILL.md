@@ -189,6 +189,11 @@ A ranged unit keeps the names (`attack` = draw and release) so game code stays t
 - An item lying on the ground after death: exactly flat in model space it sinks into any rise
   of the terrain (a 2.6 m spear always does) — tilt it a few degrees up.
 - A front view hides depth: check draws, thrusts and swings with `--heading=90`.
+- `armAngles` applies `rotZ` after `rotX`, in the parent's frame: "rz < 0 moves the right arm
+  outward" holds only while the arm hangs. On an arm raised overhead the sign flips — a negative
+  rz tilts the fist over the helmet (the swordsman's wind-up put the sword through his head).
+  A raised arm goes outward with rz > 0; check swings against the head with `clashes()` from
+  `tests/unit-collision.mjs` (it samples between keys, where these cross-overs happen).
 - A two-handed weapon held "in front of the belly" goes through the chest: the rear fist must be
   OUTSIDE the torso box (|x| >= 0.205 + shaft radius), the torso turned toward the weapon side so
   the other hand still reaches the shaft. Pictures miss a 5 cm overlap — measure it: sample the

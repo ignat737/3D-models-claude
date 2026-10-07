@@ -405,9 +405,11 @@ test('мечник верхом: ноги по бокам от седла, по�
   }
 });
 
-test('мечник: удар пешком и верхом направлен вперёд, без бокового разворота клинка', () => {
+// The foot attack is a diagonal cut (FOOT_ATTACK) by design; only the mounted cut stays in the
+// vertical plane by the horse's neck.
+test('мечник верхом: удар направлен вперёд, без бокового разворота клинка', () => {
   const unit = swordsmanUnit(), { J, worldOf } = rig(unit.joints);
-  for (const name of ['attack', 'rideAttack', 'rideRunAttack']) {
+  for (const name of ['rideAttack', 'rideRunAttack']) {
     const clip = unit.clips.find(c => c.name === name);
     for (let i = 0; i <= 16; i++) {
       const u = 0.5 + 0.1 * i / 16, pose = sampledPose(clip, u * (clip.times.length - 1));
@@ -419,8 +421,9 @@ test('мечник: удар пешком и верхом направлен в�
 
 test('мечник: рука и весь меч проходят снаружи головы и шлема при замахе и ударе', () => {
   const unit = swordsmanUnit(), name = p => unit.joints[p.joint].name;
+  // 2 cm: between keys the arm swings past the helmet, a hair's clearance reads as touching.
   assert.deepEqual(clashes(unit, ['attack'],
-    p => ['armR', 'foreR', 'sword'].includes(name(p)), p => name(p) === 'head'), []);
+    p => ['armR', 'foreR', 'sword'].includes(name(p)), p => name(p) === 'head', 0.02), []);
 });
 
 test('мечник верхом: рука и весь меч не пересекают голову всадника при обоих ударах', () => {
