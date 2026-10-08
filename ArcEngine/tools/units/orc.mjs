@@ -4,7 +4,7 @@
 // 0.37 m off the axis, longer arms), the same joint names and clips as the humans. Faces +Z.
 // Clips: "idle" (axe planted), "run" (axe slanted across the body), "attack" (looped overhead chop
 // with a step) and "death" (once, stays down).
-import { DEG, add, loopClip, onceClip, qmul, qrot, rig, rotX, rotY, rotZ, tween } from '../unit-glb.mjs';
+import { DEG, add, cross, dot, loopClip, norm, onceClip, qconj, qmul, qrot, rig, rotX, rotY, rotZ, sub } from '../unit-glb.mjs';
 import { B, SIDES, armAngles, deathBody, idleBody, runBody } from './humanoid.mjs';
 
 const SY = 1.15;          // height of the skeleton against the human one
@@ -120,12 +120,28 @@ function plant(pose, aim) {
   return aimJoint(pose, 'axe', aim, BUTT + (-SINK - fist[1]) / up[1]);
 }
 
+// Keep each arm's lateral axis facing outward as it passes vertical. A shortest-arc
+// aim alone flips its twist at the overhead pose, making glTF interpolation lose the grip.
+function steadyArm(pose, upper, fore) {
+  const upright = (q, reference = [1, 0, 0]) => {
+    const y = qrot(q, [0, 1, 0]), x = qrot(q, [1, 0, 0]);
+    const lateral = norm(sub(reference, y.map(v => v * dot(reference, y))));
+    return qmul(q, rotY(Math.atan2(dot(y, cross(x, lateral)), dot(x, lateral))));
+  };
+  const u = worldOf(pose, J[upper]), f = worldOf(pose, J[fore]);
+  const parent = worldOf(pose, JOINTS[J[upper]].parent);
+  pose[upper + '.rotation'] = qmul(qconj(parent.q), upright(u.q));
+  pose[fore + '.rotation'] = qmul(qconj(worldOf(pose, J[upper]).q), upright(f.q, fore === 'foreL' ? [0, 0, 1] : [1, 0, 0]));
+}
+
 // Both hands on the haft: the right fist at fist (model space), the axe at aim, the left fist
 // SPACING further along the haft.
-function bothHands(pose, fist, aim, poleR = [-1, -0.6, -0.4], poleL = [1, -0.8, 0.2]) {
+function bothHands(pose, fist, aim, poleR = [-1, -0.6, -0.4], poleL = [1, -0.8, 0.2], steady = false) {
   reach(pose, 'armR', 'foreR', fist, poleR, HAND);
+  if (steady) steadyArm(pose, 'armR', 'foreR');
   aimJoint(pose, 'axe', aim, 0);
   reach(pose, 'armL', 'foreL', add(worldOf(pose, J.axe).p, qrot(aim, [0, SPACING, 0])), poleL, HAND);
+  if (steady) steadyArm(pose, 'armL', 'foreL');
   return pose;
 }
 
@@ -134,35 +150,44 @@ function bothHands(pose, fist, aim, poleR = [-1, -0.6, -0.4], poleL = [1, -0.8, 
 const tilt = (lat, pitch) => qmul(rotZ(-lat * DEG), rotX(pitch * DEG));
 
 const HUNCH = 8;   // degrees of stoop in idle
-// Attack key poses, one per frame of the clip (22), found by a sequential search: the haft >= 1 cm
-// clear of the body boxes, the arms clear of the torso and head, each frame close to the previous one
-// (no flips). hx/hy/hz — right fist, lat/pitch — haft, ty/lean — torso, step — lunge, pr*/pl* — the
-// direction the right/left elbow bends to.
+// Raise the hands to the crown, with the axe still tilted upward behind the head.
+// Reverse at that single, limited wind-up pose without a hold, then chop forward and down.
 const CHOP = [
-  { u: 0 / 22, hx: -0.361, hy: 1.244, hz: 0.323, lat: 24.853, pitch: 10.023, ty: -12.05, lean: 10.897, step: 0.3, hips: 1, prx: -1, pry: -0.8, prz: 0, plx: 1, ply: -0.81, plz: 0.2 },
-  { u: 1 / 22, hx: -0.361, hy: 1.244, hz: 0.322, lat: 24.853, pitch: 9.761, ty: -12.62, lean: 10.681, step: 0.3, hips: 1, prx: -1, pry: -0.8, prz: 0, plx: 1, ply: -0.81, plz: 0.2 },
-  { u: 2 / 22, hx: -0.359, hy: 1.244, hz: 0.321, lat: 24.497, pitch: 8.942, ty: -13.517, lean: 9.997, step: 0.3, hips: 1, prx: -0.99, pry: -0.79, prz: 0, plx: 1, ply: -0.81, plz: 0.2 },
-  { u: 3 / 22, hx: -0.35, hy: 1.245, hz: 0.316, lat: 24.185, pitch: 7.312, ty: -15.127, lean: 8.502, step: 0.3, hips: 1, prx: -1, pry: -0.8, prz: 0, plx: 1, ply: -0.81, plz: 0.2 },
-  { u: 4 / 22, hx: -0.34, hy: 1.315, hz: 0.323, lat: 23.516, pitch: 9.512, ty: -17.624, lean: 6.056, step: 0.3, hips: 1, prx: -1, pry: -0.8, prz: 0, plx: 1, ply: -0.8, plz: 0.19 },
-  { u: 5 / 22, hx: -0.331, hy: 1.379, hz: 0.318, lat: 22.593, pitch: 7.093, ty: -20.268, lean: 4.276, step: 0.3, hips: 1, prx: -0.99, pry: -0.8, prz: 0, plx: 1, ply: -0.8, plz: 0.2 },
-  { u: 6 / 22, hx: -0.32, hy: 1.439, hz: 0.315, lat: 21.59, pitch: 4.405, ty: -22.741, lean: 2.561, step: 0.3, hips: 1, prx: -1, pry: -0.8, prz: 0, plx: 1, ply: -0.8, plz: 0.2 },
-  { u: 7 / 22, hx: -0.312, hy: 1.482, hz: 0.306, lat: 20.849, pitch: 4.005, ty: -24.702, lean: 1.517, step: 0.3, hips: 1, prx: -1, pry: -0.81, prz: 0, plx: 1, ply: -0.8, plz: 0.2 },
-  { u: 8 / 22, hx: -0.307, hy: 1.475, hz: 0.307, lat: 20.241, pitch: 6.308, ty: -26.186, lean: 2.96, step: 0.428, hips: 0.995, prx: -1, pry: -0.8, prz: 0, plx: 1, ply: -0.8, plz: 0.2 },
-  { u: 9 / 22, hx: -0.302, hy: 1.402, hz: 0.329, lat: 18.899, pitch: 19.483, ty: -27.383, lean: 9.111, step: 0.709, hips: 0.982, prx: -1, pry: -0.8, prz: 0, plx: 1, ply: -0.8, plz: 0.2 },
-  { u: 10 / 22, hx: -0.298, hy: 1.297, hz: 0.376, lat: 17.274, pitch: 46.014, ty: -28.329, lean: 16.97, step: 0.952, hips: 0.972, prx: -1, pry: -0.8, prz: 0, plx: 1, ply: -0.8, plz: 0.2 },
-  { u: 11 / 22, hx: -0.295, hy: 1.218, hz: 0.412, lat: 15.982, pitch: 66.634, ty: -29.025, lean: 22.688, step: 1, hips: 0.969, prx: -1, pry: -0.8, prz: 0, plx: 1, ply: -0.8, plz: 0.2 },
-  { u: 12 / 22, hx: -0.292, hy: 1.161, hz: 0.44, lat: 14.857, pitch: 80.818, ty: -29.774, lean: 27.158, step: 1, hips: 0.965, prx: -1, pry: -0.8, prz: 0, plx: 1, ply: -0.8, plz: 0.2 },
-  { u: 13 / 22, hx: -0.288, hy: 1.115, hz: 0.461, lat: 13.801, pitch: 90.666, ty: -30.49, lean: 30.958, step: 1, hips: 0.961, prx: -1, pry: -0.8, prz: 0, plx: 1, ply: -0.8, plz: 0.2 },
-  { u: 14 / 22, hx: -0.284, hy: 1.088, hz: 0.474, lat: 13.277, pitch: 95.51, ty: -31.16, lean: 33.791, step: 0.996, hips: 0.96, prx: -1, pry: -0.8, prz: 0, plx: 1, ply: -0.8, plz: 0.2 },
-  { u: 15 / 22, hx: -0.284, hy: 1.074, hz: 0.476, lat: 13.192, pitch: 95.397, ty: -31.192, lean: 34.786, step: 0.95, hips: 0.963, prx: -1, pry: -0.81, prz: 0, plx: 1, ply: -0.8, plz: 0.2 },
-  { u: 16 / 22, hx: -0.288, hy: 1.075, hz: 0.469, lat: 13.579, pitch: 91.277, ty: -30.192, lean: 34.178, step: 0.864, hips: 0.968, prx: -1, pry: -0.81, prz: 0, plx: 1, ply: -0.8, plz: 0.2 },
-  { u: 17 / 22, hx: -0.295, hy: 1.089, hz: 0.453, lat: 14.612, pitch: 82.119, ty: -28.169, lean: 32.091, step: 0.752, hips: 0.974, prx: -1, pry: -0.8, prz: 0, plx: 1, ply: -0.8, plz: 0.2 },
-  { u: 18 / 22, hx: -0.305, hy: 1.111, hz: 0.43, lat: 16.192, pitch: 68.842, ty: -25.646, lean: 29.03, step: 0.627, hips: 0.981, prx: -1, pry: -0.8, prz: 0, plx: 1, ply: -0.8, plz: 0.2 },
-  { u: 19 / 22, hx: -0.318, hy: 1.139, hz: 0.404, lat: 18.077, pitch: 52.425, ty: -22.79, lean: 25.465, step: 0.506, hips: 0.988, prx: -1, pry: -0.8, prz: 0, plx: 1, ply: -0.8, plz: 0.2 },
-  { u: 20 / 22, hx: -0.329, hy: 1.168, hz: 0.376, lat: 19.954, pitch: 35.732, ty: -19.777, lean: 21.913, step: 0.401, hips: 0.994, prx: -1, pry: -0.8, prz: 0, plx: 1, ply: -0.8, plz: 0.2 },
-  { u: 21 / 22, hx: -0.339, hy: 1.195, hz: 0.349, lat: 21.724, pitch: 20.516, ty: -17.264, lean: 18.561, step: 0.328, hips: 0.998, prx: -1, pry: -0.81, prz: 0, plx: 1, ply: -0.8, plz: 0.2 },
-  { u: 22 / 22, hx: -0.361, hy: 1.244, hz: 0.323, lat: 24.853, pitch: 10.023, ty: -12.05, lean: 10.897, step: 0.3, hips: 1, prx: -1, pry: -0.8, prz: 0, plx: 1, ply: -0.81, plz: 0.2 },
+  { u: 0, hx: -0.361, hy: 1.244, hz: 0.323, lat: 24.853, pitch: 10.023, ty: -12.05, lean: 10.897, step: 0.3, hips: 1, prx: -1, pry: -0.8, prz: 0, plx: 1, ply: -0.8, plz: 0.2 },
+  { u: 0.2, hx: -0.36315, hy: 1.50546, hz: 0.45374, lat: 47.87237, pitch: 16.18085, ty: -24.55319, lean: 3.59382, step: 0.09958, hips: 1.0351, prx: -1, pry: -0.77076, prz: 0.00664, plx: 1, ply: -0.7919, plz: 0.22429 },
+  { u: 0.34, hx: -0.30956, hy: 1.74395, hz: 0.45534, lat: 54.54041, pitch: -36.53213, ty: -23.55842, lean: -7.13039, step: 0.05781, hips: 1.04344, prx: -1, pry: -0.5723, prz: -0.33444, plx: 1, ply: -0.73802, plz: 0.10119 },
+  { u: 0.45, hx: 0.02, hy: 2.04, hz: 0.35, lat: 20, pitch: -65, ty: 0, lean: 0, step: 0.08, hips: 1.045, prx: -1, pry: -0.2, prz: 0.8, plx: 1, ply: 0, plz: -0.8 },
+  { u: 0.57, hx: -0.09093, hy: 1.93428, hz: 0.46816, lat: 57.7769, pitch: -26.76639, ty: -7.65629, lean: -3.25597, step: 0.26979, hips: 1.02965, prx: -1, pry: 0.3081, prz: -0.29521, plx: 1, ply: 0.41945, plz: 0.93289 },
+  { u: 0.67, hx: -0.298, hy: 1.297, hz: 0.376, lat: 17.274, pitch: 46.014, ty: -28.329, lean: 16.97, step: 0.952, hips: 0.972, prx: -1, pry: -0.8, prz: 0, plx: 1, ply: -0.8, plz: 0.2 },
+  { u: 0.74, hx: -0.28807, hy: 1.1162, hz: 0.46044, lat: 13.82388, pitch: 90.37189, ty: -30.47577, lean: 30.86586, step: 0.99968, hips: 0.96107, prx: -1, pry: -0.8, prz: 0, plx: 1, ply: -0.8, plz: 0.2 },
+  { u: 0.82, hx: -0.28434, hy: 1.07507, hz: 0.4752, lat: 13.2409, pitch: 94.97487, ty: -31.1123, lean: 34.65873, step: 0.94689, hips: 0.96319, prx: -1, pry: -0.8, prz: 0, plx: 1, ply: -0.8, plz: 0.2 },
+  { u: 1, hx: -0.361, hy: 1.244, hz: 0.323, lat: 24.853, pitch: 10.023, ty: -12.05, lean: 10.897, step: 0.3, hips: 1, prx: -1, pry: -0.8, prz: 0, plx: 1, ply: -0.8, plz: 0.2 },
 ];
+
+// Monotone Hermite interpolation keeps each control inside its two key values. Unlike
+// smoothstep per stop, matching tangents let the motion flow through the intermediate poses.
+// The wind-up has one turning point and immediately reverses into the strike.
+function chopPose(u) {
+  let i = 0;
+  while (i < CHOP.length - 2 && u > CHOP[i + 1].u) i++;
+  const a = CHOP[i], b = CHOP[i + 1], h = b.u - a.u, t = (u - a.u) / h;
+  const out = {};
+  for (const key of Object.keys(a)) {
+    if (key === 'u') continue;
+    const d = CHOP.slice(1).map((p, j) => (p[key] - CHOP[j][key]) / (p.u - CHOP[j].u));
+    const slope = j => {
+      const last = CHOP.length - 1, left = j === 0 ? d[last - 1] : d[j - 1], right = j === last ? d[0] : d[j];
+      if (left * right <= 0) return 0;
+      const hl = j === 0 ? 1 - CHOP[last - 1].u : CHOP[j].u - CHOP[j - 1].u;
+      const hr = j === last ? CHOP[1].u : CHOP[j + 1].u - CHOP[j].u;
+      const w1 = 2 * hr + hl, w2 = hr + 2 * hl;
+      return (w1 + w2) / (w1 / left + w2 / right);
+    };
+    out[key] = (2*t*t*t - 3*t*t + 1)*a[key] + (t*t*t - 2*t*t + t)*h*slope(i)
+      + (-2*t*t*t + 3*t*t)*b[key] + (t*t*t - t*t)*h*slope(i + 1);
+  }
+  return out;
+}
 
 const CLIPS = [
   // At ease: the axe planted at the right side, butt on the ground, the left arm hanging.
@@ -180,8 +205,8 @@ const CLIPS = [
   }),
   // Attack: guard (axe over the right shoulder) -> wind-up -> overhead chop with a lunge -> the
   // head bites low in front -> guard. Looped: a unit in melee plays it over and over.
-  loopClip('attack', 1.1, 22, (t) => {
-    const p = tween(t / (2 * Math.PI), CHOP);
+  loopClip('attack', 1.1, 120, (t) => {
+    const p = chopPose(t / (2 * Math.PI));
     return bothHands({
       'hips.translation': [0, p.hips, 0],
       'torso.rotation': qmul(rotY(p.ty * DEG), rotX(p.lean * DEG)),
@@ -190,7 +215,7 @@ const CLIPS = [
       'legR.rotation': qmul(rotZ(-5 * DEG), rotX(16 * DEG * p.step)),
       'shinL.rotation': rotX(18 * DEG * p.step),
       'shinR.rotation': rotX(8 * DEG * p.step),
-    }, [p.hx, p.hy, p.hz], tilt(p.lat, p.pitch), [p.prx, p.pry, p.prz], [p.plx, p.ply, p.plz]);
+    }, [p.hx, p.hy, p.hz], tilt(p.lat, p.pitch), [p.prx, p.pry, p.prz], [p.plx, p.ply, p.plz], true);
   }),
   // Death: the knees buckle, he falls on his back, the axe lies along the body rolled onto its
   // flat, the head a few degrees up: flat along the model it sinks into any rise of the ground.
@@ -201,4 +226,4 @@ const CLIPS = [
   }),
 ];
 
-export default { name: 'orc', joints: JOINTS, palette: PALETTE, parts: PARTS, clips: CLIPS, preview: 'idle@0.6,attack@0.5' };
+export default { name: 'orc', joints: JOINTS, palette: PALETTE, parts: PARTS, clips: CLIPS, preview: 'idle@0.6,attack@0.495,attack@0.82' };

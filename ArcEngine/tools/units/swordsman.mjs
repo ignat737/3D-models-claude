@@ -7,14 +7,14 @@
 // and "rideDeath" (once) pair with the horse's idle, run, attack, runAttack and death — same length.
 import { DEG, add, lerp, qconj, qmul, qrot, rig, rotX, rotY, rotZ, sub, loopClip, onceClip, tween } from '../unit-glb.mjs';
 import { deathPose as horseDeath, saddleFrame } from './horse.mjs';
-import { B, BODY, FIST_L, FIST_R, HAND, SIDES, armAngles, deathBody, face, idleBody, limbs, runBody } from './humanoid.mjs';
+import { B, BODY, FIST_L, FIST_R, SIDES, armAngles, deathBody, face, idleBody, limbs, runBody } from './humanoid.mjs';
 
 const JOINTS = [
   ...BODY,
   { name: 'sword', at: FIST_R, parent: B.foreR },
   { name: 'shield', at: FIST_L, parent: B.foreL },   // centre grip in the left fist
 ];
-const { J, worldOf, aimJoint, pointJoint, reach } = rig(JOINTS);
+const { J, worldOf, aimJoint, pointJoint } = rig(JOINTS);
 
 // "team" and "teamDark" are the faction colours: recolour those two texels for another player.
 const PALETTE = [
@@ -111,68 +111,6 @@ const ride = (t, o) => {
   return aimJoint(pose, 'shield', qmul(rotY(-15 * DEG), rotX(o.lean * DEG)));
 };
 
-// Mounted attack key poses (rideAttack, rideRunAttack), u in [0, 1) on the 18-frame grid: guard ->
-// raise the sword outside the right shoulder -> cock it behind the head -> chop forward (fast, over
-// 2 frames) -> hold the arm fully extended, blade level -> follow-through downwards -> back to guard.
-// hx/hy/hz: the fist (model space); pitch: the blade (positive tips it down; its yaw stays 0:
-// aimJoint keeps it in the vertical plane); ty/tx: torso turn and lean. Between frames the pose is
-// linear, so the extended hold keeps ty constant (the blade stays forward). The foot attack has its
-// own keys: FOOT_ATTACK.
-const F = k => k / 18;
-const SWORD_ATTACK = [
-  { u: F(0), hx: -0.38, hy: 1.18, hz: 0.24, pitch: -45, ty: 0, tx: 4, ext: 0 },
-  { u: F(2), hx: -0.42, hy: 1.50, hz: 0.10, pitch: -90, ty: -10, tx: 0, ext: 0 },
-  { u: F(4), hx: -0.50, hy: 1.76, hz: -0.12, pitch: -140, ty: -28, tx: -8, ext: 0 },
-  { u: F(6), hx: -0.52, hy: 1.78, hz: -0.16, pitch: -150, ty: -34, tx: -10, ext: 0 },
-  { u: F(7), hx: -0.36, hy: 1.68, hz: 0.20, pitch: -100, ty: -15, tx: 0, ext: 0 },
-  { u: F(8), hx: -0.24, hy: 1.52, hz: 0.44, pitch: -45, ty: 4, tx: 8, ext: 0.6 },
-  { u: F(9), hx: -0.17, hy: 1.40, hz: 0.58, pitch: -4, ty: 12, tx: 10, ext: 1 },
-  { u: F(10), hx: -0.17, hy: 1.38, hz: 0.58, pitch: 0, ty: 12, tx: 10, ext: 1 },
-  { u: F(11), hx: -0.17, hy: 1.34, hz: 0.57, pitch: 6, ty: 12, tx: 10, ext: 1 },
-  { u: F(12), hx: -0.22, hy: 1.15, hz: 0.50, pitch: 40, ty: 10, tx: 12, ext: 0.7 },
-  { u: F(14), hx: -0.34, hy: 1.12, hz: 0.34, pitch: 10, ty: 10, tx: 8, ext: 0 },
-  { u: F(16), hx: -0.38, hy: 1.14, hz: 0.28, pitch: -30, ty: 3, tx: 5, ext: 0 },
-];
-SWORD_ATTACK.push({ ...SWORD_ATTACK[0], u: 1 });
-
-// Monotone cubic (PCHIP) through the stops, periodic: no stop in the middle of a swing, no
-// overshoot at the extremes, a hold stays a hold.
-const curve = (u, stops) => {
-  const n = stops.length - 1, at = i => {
-    const w = Math.floor(i / n), s = stops[((i % n) + n) % n];
-    return { u: s.u + w, s };
-  };
-  let i = 0;
-  while (i < n - 1 && u > stops[i + 1].u) i++;
-  const [p0, a, b, p3] = [at(i - 1), at(i), at(i + 1), at(i + 2)], h = b.u - a.u, t = (u - a.u) / h;
-  const out = {};
-  for (const key of Object.keys(stops[0])) {
-    if (key === 'u') continue;
-    const d0 = (a.s[key] - p0.s[key]) / (a.u - p0.u), d1 = (b.s[key] - a.s[key]) / h, d2 = (p3.s[key] - b.s[key]) / (p3.u - b.u);
-    const tangent = (l, r, wl, wr) => (l * r <= 0 ? 0 : (wl + wr) / (wl / l + wr / r));
-    const ma = tangent(d0, d1, a.u - p0.u, h) * h, mb = tangent(d1, d2, h, p3.u - b.u) * h;
-    const t2 = t * t, t3 = t2 * t;
-    out[key] = (2 * t3 - 3 * t2 + 1) * a.s[key] + (t3 - 2 * t2 + t) * ma + (-2 * t3 + 3 * t2) * b.s[key] + (t3 - t2) * mb;
-  }
-  return out;
-};
-const ARM = 0.549;   // shoulder -> fist with the arm straight (the full reach is 0.55 m)
-const swingSword = (pose, p, seated = false) => {
-  const target = [seated ? Math.min(p.hx, -0.43) : p.hx, p.hy + (seated ? SEAT - BODY[B.hips].at[1] : 0), p.hz * (seated ? 0.85 : 1)];
-  // ext: the fist goes to the point straight ahead of the shoulder, the arm fully straight and
-  // in line with the blade (the shoulder moves with the torso, so it is taken from the pose).
-  const S = worldOf(pose, J.armR).p;
-  reach(pose, 'armR', 'foreR', lerp(target, [S[0], S[1], S[2] + ARM], p.ext), [-1, -0.2, -0.6], HAND);
-  return aimJoint(pose, 'sword', rotX(p.pitch * DEG));
-};
-
-// Cut forward in a vertical plane just outside the horse's head and neck, then recover.
-const mountedAttack = (t, lean, bob) => {
-  const p = curve(t / (2 * Math.PI), SWORD_ATTACK);
-  const pose = ride(0, { lean: lean + p.tx, sway: 0, ty: p.ty, look: -0.7 * p.ty, bob, arm: { ...SEATED, lx: -35 - lean } });
-  return swingSword(pose, p, true);
-};
-
 // On foot: guard -> wind-up over the right shoulder (0.4) -> diagonal cut across to the front
 // left with a step of the right foot (0.58) -> follow-through -> guard. Arm angles (armAngles),
 // sx — the sword against the fist, ty/tx — torso turn and lean, hy — hips height.
@@ -186,6 +124,32 @@ const FOOT_ATTACK = [
   { u: 0.75, rx: -35, rz: -5, frx: -10, sx: 85, ty: 18, tx: 12, hy: 0.88, step: 1 },
   { ...FOOT_GUARD, u: 1 },
 ];
+
+// Replay the recorded foot clip on the mount's own timeline. Slerp its quaternion keys,
+// so the gallop uses the same motion even though it has 32 keys instead of 18.
+const copyFootSword = (pose, u) => {
+  const raw = u * (FOOT_ATTACK_CLIP.times.length - 1), frame = Math.abs(raw - Math.round(raw)) < 1e-9 ? Math.round(raw) : raw, a = Math.floor(frame), b = Math.min(a + 1, FOOT_ATTACK_CLIP.times.length - 1), k = frame - a;
+  for (const key of ['armR.rotation', 'foreR.rotation', 'sword.rotation']) {
+    const values = FOOT_ATTACK_CLIP.tracks.get(key), x = values[a], y = values[b];
+    const dot = x.reduce((sum, v, i) => sum + v * y[i], 0), sign = dot < 0 ? -1 : 1;
+    const angle = Math.acos(Math.min(1, Math.abs(dot))), sin = Math.sin(angle);
+    const s = sin < 1e-6 ? 1 - k : Math.sin((1 - k) * angle) / sin, t = sin < 1e-6 ? k : Math.sin(k * angle) / sin;
+    pose[key] = k === 0 ? x : x.map((v, i) => v * s + y[i] * sign * t);
+  }
+  return pose;
+};
+
+// Use the foot attack's exact shoulder, elbow and wrist angles in the saddle. The torso stays facing forward during the cut
+// to clear the horse; the seated legs and its bounce follow the mount.
+const mountedAttack = (t, bob) => {
+  const p = tween(t / (2 * Math.PI), FOOT_ATTACK);
+  const pose = ride(0, {
+    lean: p.tx, sway: 0, ty: Math.min(p.ty, 0), look: -0.7 * p.ty, bob,
+    arm: SEATED,
+  });
+  pose['head.rotation'] = rotY(-0.7 * p.ty * DEG);
+  return copyFootSword(pose, t / (2 * Math.PI));
+};
 
 // Thrown by the falling horse: sits through the buckle (u < 0.3), flies off over its back, lands
 // on his back on the ground beside it. The clip is in the saddle's frame, which rolls with the
@@ -210,14 +174,7 @@ const rideDeath = (u) => {
   return aimJoint(pose, 'shield', nlerp(qmul(rotY(-15 * DEG), rotX(2 * DEG)), qmul(worldOf(pose, J.hips).q, SHIELD_AIM), k));
 };
 
-const CLIPS = [
-  // Low guard: sword tip down in front, shield by the left hip, a slow look around.
-  loopClip('idle', 2.4, 12, t => aimJoint(arms({ lz: 8, lx: -10 - 2 * Math.sin(t), flx: -45, rz: -8, rx: -12 + 1.5 * Math.sin(t), frx: -40, sx: 75 }, idleBody(t)), 'shield', SHIELD_AIM)),
-  // Run: shield up in front, the sword carried upright and swinging with the step.
-  loopClip('run', 0.64, 16, t => aimJoint(arms({ lz: 10, lx: -20 + 6 * Math.sin(t), flx: -55, rz: -10, rx: -20 - 22 * Math.sin(t), frx: -60, sx: -25 }, runBody(t)),
-    'shield', qmul(rotY(-15 * DEG), rotX(3 * DEG * Math.sin(2 * t))))),
-  // Attack: see FOOT_ATTACK. Looped: a unit in melee plays it over and over.
-  loopClip('attack', 0.9, 18, (t) => {
+const FOOT_ATTACK_CLIP = loopClip('attack', 0.9, 18, (t) => {
     const p = tween(t / (2 * Math.PI), FOOT_ATTACK);
     return aimJoint(arms({ lz: 10, lx: -20, flx: -55, rz: p.rz, rx: p.rx, frx: p.frx, sx: p.sx }, {
       'hips.translation': [0, p.hy, 0],
@@ -228,7 +185,16 @@ const CLIPS = [
       'shinL.rotation': rotX(0),
       'shinR.rotation': rotX(20 * DEG * p.step),
     }), 'shield', qmul(rotY((-18 - 8 * p.step) * DEG), rotX(-4 * DEG)));
-  }),
+  });
+
+const CLIPS = [
+  // Low guard: sword tip down in front, shield by the left hip, a slow look around.
+  loopClip('idle', 2.4, 12, t => aimJoint(arms({ lz: 8, lx: -10 - 2 * Math.sin(t), flx: -45, rz: -8, rx: -12 + 1.5 * Math.sin(t), frx: -40, sx: 75 }, idleBody(t)), 'shield', SHIELD_AIM)),
+  // Run: shield up in front, the sword carried upright and swinging with the step.
+  loopClip('run', 0.64, 16, t => aimJoint(arms({ lz: 10, lx: -20 + 6 * Math.sin(t), flx: -55, rz: -10, rx: -20 - 22 * Math.sin(t), frx: -60, sx: -25 }, runBody(t)),
+    'shield', qmul(rotY(-15 * DEG), rotX(3 * DEG * Math.sin(2 * t))))),
+  // Attack: see FOOT_ATTACK. Looped: a unit in melee plays it over and over.
+  FOOT_ATTACK_CLIP,
   // Death: the knees buckle, then he falls on his back and stays there (play with loop: false).
   onceClip('death', 1.3, 13, (u) => {
     const { b, fall, pose: body } = deathBody(u);
@@ -237,8 +203,8 @@ const CLIPS = [
   }),
   loopClip('ride', 2.4, 12, t => ride(t, { lean: 2, bob: 0.003 * Math.sin(t) })),
   loopClip('rideRun', 0.64, 16, t => ride(t, { lean: 14, bob: 0.012 * Math.sin(2 * t) })),
-  loopClip('rideAttack', 0.9, 18, t => mountedAttack(t, 2, 0)),
-  loopClip('rideRunAttack', 1.28, 32, t => mountedAttack(t, 14, 0.012 * Math.sin(4 * t))),
+  loopClip('rideAttack', 0.9, 18, t => mountedAttack(t, 0)),
+  loopClip('rideRunAttack', 1.28, 32, t => mountedAttack(t, 0.012 * Math.sin(4 * t))),
   onceClip('rideDeath', 1.8, 24, rideDeath),
 ];
 

@@ -121,6 +121,73 @@ for (const { unit: name, joint, radius, from, to, body, title } of [
   });
 }
 
+test('орк: ограниченный замах у макушки, топор наклонён вверх за головой', () => {
+  const unit = UNITS.find(u => u.name === 'orc'), { J, worldOf } = rig(unit.joints);
+  const clip = unit.clips.find(c => c.name === 'attack');
+  const pose = sampledPose(clip, (clip.times.length - 1) * 0.45);
+  const axe = worldOf(pose, J.axe), head = worldOf(pose, J.head);
+  const left = add(axe.p, qrot(axe.q, [0, 0.3, 0]));
+  assert.ok(Math.min(axe.p[1], left[1]) > head.p[1] + 0.28, 'двуручный хват поднят к макушке');
+  const bit = add(axe.p, qrot(axe.q, [0, 1.36, 0]));
+  assert.ok(bit[2] < head.p[2] - 0.8, 'голова топора отведена за голову орка');
+  assert.ok(bit[1] > axe.p[1] + 0.4, 'топор остаётся наклонённым вверх в верхней точке');
+  assert.ok(qrot(axe.q, [0, 1, 0])[2] > -Math.sin(70 * Math.PI / 180), 'замах ограничен, топор не проваливается за спину');
+});
+
+test('орк: кисти держат древко на всей дуге удара, включая промежутки между ключами', () => {
+  const unit = UNITS.find(u => u.name === 'orc'), { J, worldOf } = rig(unit.joints);
+  const clip = unit.clips.find(c => c.name === 'attack'), last = clip.times.length - 1;
+  for (let f = 0; f <= last * 8; f++) {
+    const pose = sampledPose(clip, f / 8), axe = worldOf(pose, J.axe);
+    for (const [side, offset] of [['R', 0], ['L', 0.3]]) {
+      const fore = worldOf(pose, J['fore' + side]);
+      const fist = add(fore.p, qrot(fore.q, [0, -0.34, 0]));
+      const grip = add(axe.p, qrot(axe.q, [0, offset, 0]));
+      assert.ok(Math.hypot(...sub(fist, grip)) < 0.015, 'кадр ' + f / 8 + ': кисть ' + side + ' держит древко');
+    }
+  }
+});
+
+test('орк: весь топор обходит голову и тело между ключевыми позами', () => {
+  const unit = UNITS.find(u => u.name === 'orc');
+  const name = p => unit.joints[p.joint].name;
+  assert.deepEqual(clashes(unit, ['attack'], p => name(p) === 'axe',
+    p => BODY_ALL.includes(name(p))), []);
+});
+
+test('тролль: ограниченный замах над головой, дубина наклонена вверх за спиной', () => {
+  const unit = UNITS.find(u => u.name === 'troll'), { J, worldOf } = rig(unit.joints);
+  const clip = unit.clips.find(c => c.name === 'attack');
+  const pose = sampledPose(clip, (clip.times.length - 1) * 0.45);
+  const club = worldOf(pose, J.club), head = worldOf(pose, J.head);
+  const left = add(club.p, qrot(club.q, [0, -0.24, 0]));
+  assert.ok(Math.min(club.p[1], left[1]) > head.p[1] + 0.28, 'двуручный хват поднят к макушке');
+  const tip = add(club.p, qrot(club.q, [0, 1.28, 0]));
+  assert.ok(tip[2] < head.p[2] - 0.8, 'голова дубины отведена назад');
+  assert.ok(tip[1] > club.p[1] + 0.4, 'дубина наклонена вверх, без глубокого замаха за спину');
+});
+
+test('тролль: кисти держат рукоять на всей дуге удара, включая промежутки между ключами', () => {
+  const unit = UNITS.find(u => u.name === 'troll'), { J, worldOf } = rig(unit.joints);
+  const clip = unit.clips.find(c => c.name === 'attack'), last = clip.times.length - 1;
+  for (let f = 0; f <= last * 8; f++) {
+    const pose = sampledPose(clip, f / 8), club = worldOf(pose, J.club);
+    for (const [side, offset] of [['R', 0], ['L', -0.24]]) {
+      const fore = worldOf(pose, J['fore' + side]);
+      const fist = add(fore.p, qrot(fore.q, [0, -HAND * 1.43, 0]));
+      const grip = add(club.p, qrot(club.q, [0, offset, 0]));
+      assert.ok(Math.hypot(...sub(fist, grip)) < 0.015, 'кадр ' + f / 8 + ': кисть ' + side + ' держит рукоять');
+    }
+  }
+});
+
+test('тролль: вся дубина обходит голову и тело между ключевыми позами', () => {
+  const unit = UNITS.find(u => u.name === 'troll');
+  const name = p => unit.joints[p.joint].name;
+  assert.deepEqual(clashes(unit, ['attack'], p => name(p) === 'club',
+    p => BODY_ALL.includes(name(p))), []);
+});
+
 test('юниты: имена уникальны, у каждого поле preview с его клипами', () => {
   assert.equal(new Set(UNITS.map(u => u.name)).size, UNITS.length);
   for (const unit of UNITS) {
@@ -405,16 +472,19 @@ test('мечник верхом: ноги по бокам от седла, по�
   }
 });
 
-// The foot attack is a diagonal cut (FOOT_ATTACK) by design; only the mounted cut stays in the
-// vertical plane by the horse's neck.
-test('мечник верхом: удар направлен вперёд, без бокового разворота клинка', () => {
-  const unit = swordsmanUnit(), { J, worldOf } = rig(unit.joints);
-  for (const name of ['rideAttack', 'rideRunAttack']) {
-    const clip = unit.clips.find(c => c.name === name);
-    for (let i = 0; i <= 16; i++) {
-      const u = 0.5 + 0.1 * i / 16, pose = sampledPose(clip, u * (clip.times.length - 1));
-      const direction = qrot(worldOf(pose, J.sword).q, [0, 0, 1]);
-      assert.ok(Math.abs(direction[0]) < direction[2] * Math.tan(5 * Math.PI / 180) && direction[2] > 0.55, name + ': клинок рубит вперёд');
+test('мечник верхом: плечо, локоть и меч повторяют текущую пешую атаку', () => {
+  const unit = swordsmanUnit(), foot = unit.clips.find(c => c.name === 'attack');
+  const keys = ['armR.rotation', 'foreR.rotation', 'sword.rotation'];
+  const standing = unit.clips.find(c => c.name === 'rideAttack');
+  for (const key of keys) assert.deepEqual(standing.tracks.get(key), foot.tracks.get(key), key);
+  const gallop = unit.clips.find(c => c.name === 'rideRunAttack');
+  // Different key grids (18 / 32) approximate the same recorded curve: allow 4 degrees.
+  for (let i = 0; i <= 400; i++) {
+    const u = i / 400, a = sampledPose(foot, u * (foot.times.length - 1)), b = sampledPose(gallop, u * (gallop.times.length - 1));
+    for (const key of keys) {
+      const dot = Math.abs(a[key].reduce((sum, v, k) => sum + v * b[key][k], 0));
+      const angle = 2 * Math.acos(Math.min(1, dot));
+      assert.ok(angle < 4 * Math.PI / 180, key + ': та же траектория на скаку');
     }
   }
 });
