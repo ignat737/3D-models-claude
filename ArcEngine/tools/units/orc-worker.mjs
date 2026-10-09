@@ -1,16 +1,44 @@
-// Orc worker: the orc's brawn at work, 1.95 m tall: green skin, tusks, a team headband and topknot,
-// a bare chest with a team sash, a loincloth, heavy tools (the axe and the pick are 1.15 times
-// the human's). The skeleton is the humanoid one stretched 1.3 x 1.15 x 1.25, the clips are the
-// human worker's. Faces +Z. Clips: "idle", "run", "chop", "mine", "death".
+// Orc worker: the orc's brawn at work, 1.85 m tall (the topknot's top): green skin, tusks, a team
+// headband and topknot, a bare chest with a team sash, a loincloth, heavy tools (the axe and the
+// pick are 1.15 times the human's). Shorter than the 2.0 m warrior orc by SHORT LEGS: the torso,
+// arms and head are the 1.3 x 1.15 x 1.25 stretched humanoid lowered by DROP, the legs are
+// squeezed to fit under it, so every hand pose of the shared clips keeps its clearance from the
+// head. The clips are the human worker's. Faces +Z. Clips: "idle", "run", "chop", "mine", "death".
 import { rig } from '../unit-glb.mjs';
 import { B } from './humanoid.mjs';
 import { scaledBody } from './scaled.mjs';
 import { toolParts, workerClips } from './worker-kit.mjs';
 
 const SX = 1.3, SY = 1.15, SZ = 1.25;
-const { BODY, FIST_R, HAND, S, limbs, grow } = scaledBody(SX, SY, SZ);
-const JOINTS = [...BODY, { name: 'axe', at: FIST_R, parent: B.torso }, { name: 'pick', at: FIST_R, parent: B.torso }];
+const { BODY, FIST_R, HAND, limbs } = scaledBody(SX, SY, SZ);
+const DROP = 0.18;                                    // everything above the hips is this much lower
+const HIPS_Y = BODY[B.hips].at[1];
+const LEG = (HIPS_Y - DROP) / HIPS_Y;                 // the legs shrink about the ground
+const LEG_JOINTS = [B.legL, B.legR, B.shinL, B.shinR];
+const isLeg = joint => LEG_JOINTS.includes(joint);
+const lower = (j, at) => [at[0], isLeg(j) ? at[1] * LEG : at[1] - DROP, at[2]];
+const JOINTS = [
+  ...BODY.map((j, i) => ({ ...j, at: lower(i, j.at) })),
+  { name: 'axe', at: lower(B.torso, FIST_R), parent: B.torso },
+  { name: 'pick', at: lower(B.torso, FIST_R), parent: B.torso },
+];
 const { J } = rig(JOINTS);
+
+// A part written in the stretched skeleton's coordinates -> the lowered one.
+function fit(p) {
+  const leg = isLeg(p.joint);
+  const c = lower(p.joint, p.c);
+  if (p.s) return { ...p, c, s: leg ? [p.s[0], p.s[1] * LEG, p.s[2]] : p.s };
+  return { ...p, c, h: leg ? p.h * LEG : p.h };
+}
+
+// The shared clips move the hips in human metres: stretch the track, lower it while standing (not
+// once fallen: a body lying down sits on the ground at the same height as the warrior's).
+function grow(pose) {
+  const h = pose['hips.translation'];
+  if (h) pose['hips.translation'] = [h[0] * SY, h[1] * SY - DROP * Math.min(1, Math.max(0, (h[1] - 0.24) / 0.66)), h[2] * SY];
+  return pose;
+}
 
 // "team" and "teamDark" are the faction colours: recolour those two texels for another player.
 const PALETTE = [
@@ -53,8 +81,8 @@ const PARTS = [
   { c: [0, 0.97, 0], s: [0.44, 0.16, 0.26], joint: B.hips, color: 'cloth' },
   ...limbs({ upper: 'skin', fore: 'skin', fist: 'skin', thigh: 'cloth', flap: 'team', shin: 'skin', boot: 'leather' }),
   ...toolParts(J, FIST_R, 1.15, { wood: 'wood', grip: 'leather', head: 'iron', edge: 'steel', team: 'team' }),
-];
+].map(fit);
 
-const CLIPS = workerClips({ JOINTS, at: v => [v[0] * SX, v[1] * SY, v[2] * SZ], grow, HAND, k: 1.15, back: { x: 0.08, y: 1.12, z: -0.23 } });
+const CLIPS = workerClips({ JOINTS, at: v => [v[0] * SX, v[1] * SY - DROP, v[2] * SZ], grow, HAND, k: 1.15, back: { x: 0.08, y: 1.12 - DROP, z: -0.23 } });
 
 export default { name: 'orc-worker', joints: JOINTS, palette: PALETTE, parts: PARTS, clips: CLIPS, worker: true, previewGap: 42, preview: 'idle@0.6,run@0.16,chop@0.5,mine@0.62,death@1.3' };
