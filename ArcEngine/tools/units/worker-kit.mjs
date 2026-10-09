@@ -3,8 +3,8 @@
 // Both tools sit on their own joints; the one not in use is hidden by scale (never 0: a zero-scaled
 // skinned normal becomes NaN) inside the fist. EVERY clip sets both scales, so a blend between two
 // clips never leaves a tool at its bind scale.
-import { DEG, add, dot, loopClip, qmul, qrot, rig, rotX, rotY, rotZ, sub, tween } from '../unit-glb.mjs';
-import { armAngles, idleBody, runBody } from './humanoid.mjs';
+import { DEG, add, dot, loopClip, onceClip, qmul, qrot, rig, rotX, rotY, rotZ, sub, tween } from '../unit-glb.mjs';
+import { armAngles, deathBody, idleBody, runBody } from './humanoid.mjs';
 
 const HIDE = [0.02, 0.02, 0.02], SHOW = [1, 1, 1];
 
@@ -115,5 +115,13 @@ export function workerClips({ JOINTS, at, grow, HAND, k }) {
     loopClip('chop', 1.0, 20, t => swing('axe', tween(t / (2 * Math.PI), CHOP))),
     // Mine: the pick over the head, a deep lunge, the point driven into the rock at the feet.
     loopClip('mine', 1.2, 24, t => swing('pick', tween(t / (2 * Math.PI), MINE))),
+    // Death: the knees buckle, he falls on his back, the axe lies along the body rolled onto its
+    // flat, the head a few degrees up (flat along the model it sinks into any rise of the ground).
+    onceClip('death', 1.3, 13, (u) => {
+      const { b, fall, pose: body } = deathBody(u);
+      const pose = armAngles({ lz: 8 + 45 * fall, lx: -8, flx: -20 + 10 * fall, rz: -8 - 50 * fall, rx: -40 + 30 * b, frx: -50 + 30 * fall }, grow(body));
+      aimJoint(pose, 'axe', qmul(worldOf(pose, J.hips).q, qmul(rotX((-4 + 12 * fall) * DEG), rotY(90 * DEG * fall))), 0);
+      return use(pose, 'axe');
+    }),
   ];
 }

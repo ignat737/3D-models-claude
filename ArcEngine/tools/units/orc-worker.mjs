@@ -1,7 +1,7 @@
 // Orc worker: the orc's brawn at work, 1.95 m tall: green skin, tusks, a team headband and topknot,
 // a bare chest with a team sash, a loincloth, heavy tools (the axe and the pick are 1.15 times
 // the human's). The skeleton is the humanoid one stretched 1.3 x 1.15 x 1.25, the clips are the
-// human worker's. Faces +Z. Clips: "idle", "run", "chop", "mine".
+// human worker's. Faces +Z. Clips: "idle", "run", "chop", "mine", "death".
 import { rig } from '../unit-glb.mjs';
 import { B } from './humanoid.mjs';
 import { scaledBody } from './scaled.mjs';
@@ -57,4 +57,4 @@ const PARTS = [
 
 const CLIPS = workerClips({ JOINTS, at: v => [v[0] * SX, v[1] * SY, v[2] * SZ], grow, HAND, k: 1.15 });
 
-export default { name: 'orc-worker', joints: JOINTS, palette: PALETTE, parts: PARTS, clips: CLIPS, worker: true, preview: 'idle@0.6,run@0.16,chop@0.5,mine@0.62' };
+export default { name: 'orc-worker', joints: JOINTS, palette: PALETTE, parts: PARTS, clips: CLIPS, worker: true, preview: 'idle@0.6,run@0.16,chop@0.5,mine@0.62,death@1.3' };

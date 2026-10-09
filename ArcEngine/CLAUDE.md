@@ -129,7 +129,7 @@ tools/            dev-server.mjs, build.mjs, asset-scan.mjs, zip.mjs, check.mjs 
                   генератор low-poly юнитов для стратегии в 3D-models/3D-models-units/; make-buildings.mjs + buildings/*.mjs —
                   генератор статичных зданий и укреплений в 3D-models/3D-models-buildings/ и 3D-models-defense/; browser.mjs — игра в headless
                   Chrome без панели браузера (скриншот, eval, lint); unit-preview.mjs — снимок юнита в сцене
-3D-models/        3D-models-units/ — модели юнитов (GLB: один меш, один материал-палитра, клипы idle/run/attack/death; рабочие worker.glb и orc-worker.glb — idle, run, chop, mine, без боевых клипов; лошадь — idle, run, attack, runAttack, death и кость saddle; mounted-swordsman — всадник на лошади одним файлом),
+3D-models/        3D-models-units/ — модели юнитов (GLB: один меш, один материал-палитра, клипы idle/run/attack/death; рабочие worker.glb и orc-worker.glb — idle, run, chop, mine, death, без attack; лошадь — idle, run, attack, runAttack, death и кость saddle; mounted-swordsman — всадник на лошади одним файлом),
                   генерируются tools/make-units.mjs; в игру — копией в assets/models/ (README.md);
                   3D-models-buildings/ — статичные здания (peasant-house.glb, barracks.glb), генерируются tools/make-buildings.mjs;
                   3D-models-defense/ — укрепления (palisade-segment.glb — частокол 10 м, palisade-tower.glb — башня со стрелковой площадкой, palisade-gate.glb и palisade-gate-open.glb — ворота закрытые и открытые; каменные близнецы stone-wall-segment, stone-tower, stone-gate, stone-gate-open; срубные — деревянные, но по форме как каменные: timber-wall-segment, timber-tower, timber-gate, timber-gate-open), тот же генератор (tools/defense/*.mjs)

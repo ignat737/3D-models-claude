@@ -1,7 +1,7 @@
-// Worker: a low-poly peasant, 1.75 m tall (1.9 with the straw hat): team-coloured tunic and
+// Worker: a low-poly peasant, 1.75 m tall (1.85 with the straw hat): team-coloured tunic and
 // neckerchief, leather apron, a sack on the back, a felling axe and a pickaxe (one in the fist at a
 // time). Faces +Z. Clips: "idle" (axe hanging), "run" (axe over the shoulder), "chop" (looped, at a
-// trunk in front) and "mine" (looped, at a rock in front).
+// trunk in front), "mine" (looped, at a rock in front) and "death" (once, stays down).
 import { rig } from '../unit-glb.mjs';
 import { B, BODY, FIST_R, HAND, face, limbs } from './humanoid.mjs';
 import { toolParts, workerClips } from './worker-kit.mjs';
@@ -49,4 +49,4 @@ const PARTS = [
 
 const CLIPS = workerClips({ JOINTS, at: v => v, grow: p => p, HAND, k: 1 });
 
-export default { name: 'worker', joints: JOINTS, palette: PALETTE, parts: PARTS, clips: CLIPS, worker: true, preview: 'idle@0.6,run@0.16,chop@0.5,mine@0.62' };
+export default { name: 'worker', joints: JOINTS, palette: PALETTE, parts: PARTS, clips: CLIPS, worker: true, preview: 'idle@0.6,run@0.16,chop@0.5,mine@0.62,death@1.3' };

@@ -63,7 +63,7 @@ for (const unit of UNITS) {
     assert.equal(gltf.accessors[skin.inverseBindMatrices].count, skin.joints.length);
     assert.deepEqual(gltf.animations.map(a => a.name), unit.clips.map(c => c.name));
     assert.deepEqual(gltf.animations.slice(0, 2).map(a => a.name), ['idle', 'run']);
-    for (const need of unit.worker ? ['chop', 'mine'] : ['attack', 'death']) assert.ok(gltf.animations.some(a => a.name === need), unit.name + ': ' + need);
+    for (const need of unit.worker ? ['chop', 'mine', 'death'] : ['attack', 'death']) assert.ok(gltf.animations.some(a => a.name === need), unit.name + ': ' + need);
     for (const [i, anim] of gltf.animations.entries()) {
       if (!unit.clips[i].loop) continue;
       for (const s of anim.samplers) {
@@ -75,7 +75,6 @@ for (const unit of UNITS) {
 
   test(`${unit.name}: death заканчивается лёжа на земле`, (t) => {
     const death = unit.clips.find(c => c.name === 'death');
-    if (!death) return t.skip('у рабочих нет смерти: только idle, run, chop, mine');
     assert.equal(death.loop, false);
     const hips = death.tracks.get('hips.translation');
     if (!hips) return t.skip('смерть лошади — отдельный тест');
@@ -86,10 +85,10 @@ for (const unit of UNITS) {
 for (const name of ['worker', 'orc-worker']) {
   test(`${name}: клипы idle, run, chop, mine; инструмент не в работе спрятан масштабом, ступни на земле в chop и mine`, () => {
     const unit = UNITS.find(u => u.name === name), { J, worldOf } = rig(unit.joints);
-    assert.deepEqual(unit.clips.map(c => c.name), ['idle', 'run', 'chop', 'mine']);
+    assert.deepEqual(unit.clips.map(c => c.name), ['idle', 'run', 'chop', 'mine', 'death']);
     const shin = unit.joints[J.shinL].at[1];
     for (const clip of unit.clips) {
-      assert.equal(clip.loop, true, clip.name);
+      assert.equal(clip.loop, clip.name !== 'death', clip.name);
       const shown = tool => clip.tracks.get(tool + '.scale').map(v => v[0] === 1);
       for (const [tool, only] of [['axe', clip.name !== 'mine'], ['pick', clip.name === 'mine']]) {
         assert.ok(shown(tool).every(v => v === only), `${clip.name}: ${tool}`);
