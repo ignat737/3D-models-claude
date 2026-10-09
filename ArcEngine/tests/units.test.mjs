@@ -63,7 +63,7 @@ for (const unit of UNITS) {
     assert.equal(gltf.accessors[skin.inverseBindMatrices].count, skin.joints.length);
     assert.deepEqual(gltf.animations.map(a => a.name), unit.clips.map(c => c.name));
     assert.deepEqual(gltf.animations.slice(0, 2).map(a => a.name), ['idle', 'run']);
-    for (const need of ['attack', 'death']) assert.ok(gltf.animations.some(a => a.name === need), unit.name + ': ' + need);
+    for (const need of unit.worker ? ['chop', 'mine'] : ['attack', 'death']) assert.ok(gltf.animations.some(a => a.name === need), unit.name + ': ' + need);
     for (const [i, anim] of gltf.animations.entries()) {
       if (!unit.clips[i].loop) continue;
       for (const s of anim.samplers) {
@@ -75,10 +75,32 @@ for (const unit of UNITS) {
 
   test(`${unit.name}: death заканчивается лёжа на земле`, (t) => {
     const death = unit.clips.find(c => c.name === 'death');
+    if (!death) return t.skip('у рабочих нет смерти: только idle, run, chop, mine');
     assert.equal(death.loop, false);
     const hips = death.tracks.get('hips.translation');
     if (!hips) return t.skip('смерть лошади — отдельный тест');
     assert.ok(hips[hips.length - 1][1] < 0.25, 'таз у земли');
+  });
+}
+
+for (const name of ['worker', 'orc-worker']) {
+  test(`${name}: клипы idle, run, chop, mine; инструмент не в работе спрятан масштабом, ступни на земле в chop и mine`, () => {
+    const unit = UNITS.find(u => u.name === name), { J, worldOf } = rig(unit.joints);
+    assert.deepEqual(unit.clips.map(c => c.name), ['idle', 'run', 'chop', 'mine']);
+    const shin = unit.joints[J.shinL].at[1];
+    for (const clip of unit.clips) {
+      assert.equal(clip.loop, true, clip.name);
+      const shown = tool => clip.tracks.get(tool + '.scale').map(v => v[0] === 1);
+      for (const [tool, only] of [['axe', clip.name !== 'mine'], ['pick', clip.name === 'mine']]) {
+        assert.ok(shown(tool).every(v => v === only), `${clip.name}: ${tool}`);
+      }
+      if (clip.name !== 'chop' && clip.name !== 'mine') continue;
+      for (let f = 0; f < clip.times.length; f++) {
+        const pose = Object.fromEntries([...clip.tracks].map(([k, v]) => [k, v[f]]));
+        const heels = ['shinL', 'shinR'].map(n => worldOf(pose, J[n]).p[1] + qrot(worldOf(pose, J[n]).q, [0, -shin, 0])[1]);
+        assert.ok(Math.abs(Math.min(...heels)) < 1e-6, `${clip.name} кадр ${f}: ступня не на земле`);
+      }
+    }
   });
 }
 
@@ -96,6 +118,10 @@ for (const { unit: name, joint, radius, from, to, body, title } of [
   { unit: 'orc', joint: 'axe', radius: 0.032, from: -0.2, to: 1.5, body: BODY_ALL, title: 'орк: древко топора' },
   { unit: 'goblin', joint: 'spear', radius: 0.018, from: -0.75, to: 0.72, body: BODY_ALL, title: 'гоблин: древко копья' },
   { unit: 'troll', joint: 'club', radius: 0.06, from: -0.42, to: 0.5, body: BODY_ALL, title: 'тролль: рукоять дубины' },
+  { unit: 'worker', joint: 'axe', radius: 0.03, from: 0, to: 0.6, body: BODY_ALL, title: 'рабочий: древко топора' },
+  { unit: 'worker', joint: 'pick', radius: 0.03, from: 0, to: 0.6, body: BODY_ALL, title: 'рабочий: древко кирки' },
+  { unit: 'orc-worker', joint: 'axe', radius: 0.035, from: 0, to: 0.7, body: BODY_ALL, title: 'орк-рабочий: древко топора' },
+  { unit: 'orc-worker', joint: 'pick', radius: 0.035, from: 0, to: 0.7, body: BODY_ALL, title: 'орк-рабочий: древко кирки' },
 ]) {
   test(`${title} не проходит сквозь тело ни в одном кадре`, () => {
     const unit = UNITS.find(u => u.name === name);

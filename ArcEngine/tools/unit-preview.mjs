@@ -69,7 +69,7 @@ if (mode === 'squad' && !model.clips.length) {
 } else if (mode === 'squad') {
   // Ranks and files scale with the unit's length (gap / 28: 1 for a human).
   const g = gap / 28, rank = 16 * (1 + (g - 1) * 1.3), file = 15 * g, f = Math.pow(g, 0.9);
-  const clips = ['idle', 'run', 'attack', 'runAttack'].filter(c => model.clips.includes(c));
+  const clips = ['idle', 'run', 'attack', 'runAttack', 'chop', 'mine'].filter(c => model.clips.includes(c));
   for (let r = 0; r < 5; r++) for (let k = 0; k < 6; k++) {
     add(960 + r * rank + (k % 2) * 4 * g, 1020 + k * file, Math.PI * 0.9, clips[(r + k) % clips.length], ((r * 7 + k * 3) % 10) / 10 * 0.6);
   }
