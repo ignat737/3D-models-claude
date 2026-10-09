@@ -1,12 +1,13 @@
 // Worker: a low-poly peasant, 1.75 m tall (1.85 with the straw hat): team-coloured tunic and
-// neckerchief, leather apron, a sack on the back, a felling axe and a pickaxe (one in the fist at a
-// time). Faces +Z. Clips: "idle" (axe hanging), "run" (axe over the shoulder), "chop" (looped, at a
-// trunk in front), "mine" (looped, at a rock in front) and "death" (once, stays down).
+// neckerchief, leather apron, a sack on the back, a felling axe and a pickaxe. Both ride
+// on the back; only the tool of the clip is in the fist. Faces +Z. Clips: "idle" and "run" (empty
+// hands), "chop" (looped, a flat sweep of the axe at a trunk in front), "mine" (looped, the pick at
+// a rock in front) and "death" (once, stays down).
 import { rig } from '../unit-glb.mjs';
 import { B, BODY, FIST_R, HAND, face, limbs } from './humanoid.mjs';
 import { toolParts, workerClips } from './worker-kit.mjs';
 
-const JOINTS = [...BODY, { name: 'axe', at: FIST_R, parent: B.foreR }, { name: 'pick', at: FIST_R, parent: B.foreR }];
+const JOINTS = [...BODY, { name: 'axe', at: FIST_R, parent: B.torso }, { name: 'pick', at: FIST_R, parent: B.torso }];
 const { J } = rig(JOINTS);
 
 // "team" and "teamDark" are the faction colours: recolour those two texels for another player.
@@ -47,6 +48,6 @@ const PARTS = [
   ...toolParts(J, FIST_R, 1, { wood: 'wood', grip: 'leather', head: 'iron', edge: 'blade', team: 'team' }),
 ];
 
-const CLIPS = workerClips({ JOINTS, at: v => v, grow: p => p, HAND, k: 1 });
+const CLIPS = workerClips({ JOINTS, at: v => v, grow: p => p, HAND, k: 1, back: { x: 0.07, y: 0.86, z: -0.31 } });
 
-export default { name: 'worker', joints: JOINTS, palette: PALETTE, parts: PARTS, clips: CLIPS, worker: true, preview: 'idle@0.6,run@0.16,chop@0.5,mine@0.62,death@1.3' };
+export default { name: 'worker', joints: JOINTS, palette: PALETTE, parts: PARTS, clips: CLIPS, worker: true, previewGap: 42, preview: 'idle@0.6,run@0.16,chop@0.5,mine@0.62,death@1.3' };
