@@ -17,12 +17,14 @@ import mountedSwordsman from './units/mounted-swordsman.mjs';
 import orc from './units/orc.mjs';
 import spearman from './units/spearman.mjs';
 import swordsman from './units/swordsman.mjs';
+import orcWorker from './units/orc-worker.mjs';
 import troll from './units/troll.mjs';
+import worker from './units/worker.mjs';
 import wolf from './units/wolf.mjs';
 
 const ROOT = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), '..');
 const OUT_DIR = path.join(ROOT, '3D-models', '3D-models-units');
-const UNITS = [swordsman, archer, spearman, orc, goblin, troll, horse, mountedSwordsman, wolf, goblinWolfRider];
+const UNITS = [swordsman, archer, spearman, orc, goblin, troll, horse, mountedSwordsman, wolf, goblinWolfRider, worker, orcWorker];
 const outOf = unit => path.join(OUT_DIR, unit.name + '.glb');
 
 export { UNITS, OUT_DIR, outOf, buildGlb, buildMesh, IK_MISSES };
