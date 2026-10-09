@@ -83,15 +83,30 @@ for (const unit of UNITS) {
 }
 
 for (const name of ['worker', 'orc-worker']) {
-  test(`${name}: клипы idle, run, chop, mine; инструмент не в работе спрятан масштабом, ступни на земле в chop и mine`, () => {
+  test(`${name}: клипы idle, run, chop, mine, death; в руке только рабочий инструмент, остальные неподвижно на спине, ступни на земле в chop и mine`, () => {
     const unit = UNITS.find(u => u.name === name), { J, worldOf } = rig(unit.joints);
     assert.deepEqual(unit.clips.map(c => c.name), ['idle', 'run', 'chop', 'mine', 'death']);
+    assert.equal(unit.joints[J.axe].parent, J.torso, 'инструменты висят на торсе');
     const shin = unit.joints[J.shinL].at[1];
+    const inHand = { chop: 'axe', mine: 'pick' };
     for (const clip of unit.clips) {
       assert.equal(clip.loop, clip.name !== 'death', clip.name);
-      const shown = tool => clip.tracks.get(tool + '.scale').map(v => v[0] === 1);
-      for (const [tool, only] of [['axe', clip.name !== 'mine'], ['pick', clip.name === 'mine']]) {
-        assert.ok(shown(tool).every(v => v === only), `${clip.name}: ${tool}`);
+      assert.equal(clip.tracks.has('axe.scale') || clip.tracks.has('pick.scale'), false, 'инструмент не прячется масштабом');
+      for (const tool of ['axe', 'pick']) {
+        const rot = clip.tracks.get(tool + '.rotation'), tr = clip.tracks.get(tool + '.translation');
+        assert.ok(rot && tr, `${clip.name}: ${tool} задан в каждом кадре`);
+        for (let f = 0; f < clip.times.length; f++) {
+          const pose = Object.fromEntries([...clip.tracks].map(([k, v]) => [k, v[f]]));
+          const torso = worldOf(pose, J.torso), t = worldOf(pose, J[tool]);
+          const local = qrot(qconj(torso.q), sub(t.p, torso.p));
+          if (inHand[clip.name] === tool) {
+            assert.ok(local[2] > 0.1, `${clip.name} кадр ${f}: ${tool} в руке перед торсом`);
+          } else {
+            assert.deepEqual(tr[f], tr[0], `${clip.name}: ${tool} на спине не двигается относительно торса`);
+            assert.deepEqual(rot[f], rot[0]);
+            assert.ok(local[2] < -0.15, `${clip.name}: ${tool} за спиной`);
+          }
+        }
       }
       if (clip.name !== 'chop' && clip.name !== 'mine') continue;
       for (let f = 0; f < clip.times.length; f++) {
@@ -100,6 +115,23 @@ for (const name of ['worker', 'orc-worker']) {
         assert.ok(Math.abs(Math.min(...heels)) < 1e-6, `${clip.name} кадр ${f}: ступня не на земле`);
       }
     }
+  });
+}
+
+// The chop is a flat sweep: the haft stays within 10 degrees of the horizontal plane in every frame,
+// and the edge-leading end passes across the body (the haft yaw changes by more than 60 degrees).
+for (const name of ['worker', 'orc-worker']) {
+  test(`${name}: рубка идёт в горизонтальной плоскости`, () => {
+    const unit = UNITS.find(u => u.name === name), { J, worldOf } = rig(unit.joints);
+    const clip = unit.clips.find(c => c.name === 'chop');
+    const yaws = [];
+    for (let f = 0; f < clip.times.length; f++) {
+      const pose = Object.fromEntries([...clip.tracks].map(([k, v]) => [k, v[f]]));
+      const dir = qrot(worldOf(pose, J.axe).q, [0, 1, 0]);
+      assert.ok(Math.abs(dir[1]) < Math.sin(10 * Math.PI / 180), `кадр ${f}: древко наклонено, y=${dir[1].toFixed(2)}`);
+      yaws.push(Math.atan2(dir[0], dir[2]) * 180 / Math.PI);
+    }
+    assert.ok(Math.max(...yaws) - Math.min(...yaws) > 60, 'взмах не меньше 60° по горизонту');
   });
 }
 
@@ -117,10 +149,10 @@ for (const { unit: name, joint, radius, from, to, body, title } of [
   { unit: 'orc', joint: 'axe', radius: 0.032, from: -0.2, to: 1.5, body: BODY_ALL, title: 'орк: древко топора' },
   { unit: 'goblin', joint: 'spear', radius: 0.018, from: -0.75, to: 0.72, body: BODY_ALL, title: 'гоблин: древко копья' },
   { unit: 'troll', joint: 'club', radius: 0.06, from: -0.42, to: 0.5, body: BODY_ALL, title: 'тролль: рукоять дубины' },
-  { unit: 'worker', joint: 'axe', radius: 0.03, from: 0, to: 0.6, body: BODY_ALL, title: 'рабочий: древко топора' },
-  { unit: 'worker', joint: 'pick', radius: 0.03, from: 0, to: 0.6, body: BODY_ALL, title: 'рабочий: древко кирки' },
-  { unit: 'orc-worker', joint: 'axe', radius: 0.035, from: 0, to: 0.7, body: BODY_ALL, title: 'орк-рабочий: древко топора' },
-  { unit: 'orc-worker', joint: 'pick', radius: 0.035, from: 0, to: 0.7, body: BODY_ALL, title: 'орк-рабочий: древко кирки' },
+  { unit: 'worker', joint: 'axe', radius: 0.03, from: 0, to: 0.8, body: BODY_ALL, title: 'рабочий: древко топора' },
+  { unit: 'worker', joint: 'pick', radius: 0.03, from: 0, to: 0.8, body: BODY_ALL, title: 'рабочий: древко кирки' },
+  { unit: 'orc-worker', joint: 'axe', radius: 0.035, from: 0, to: 0.92, body: BODY_ALL, title: 'орк-рабочий: древко топора' },
+  { unit: 'orc-worker', joint: 'pick', radius: 0.035, from: 0, to: 0.92, body: BODY_ALL, title: 'орк-рабочий: древко кирки' },
 ]) {
   test(`${title} не проходит сквозь тело ни в одном кадре`, () => {
     const unit = UNITS.find(u => u.name === name);

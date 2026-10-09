@@ -9,7 +9,7 @@ import { toolParts, workerClips } from './worker-kit.mjs';
 
 const SX = 1.3, SY = 1.15, SZ = 1.25;
 const { BODY, FIST_R, HAND, S, limbs, grow } = scaledBody(SX, SY, SZ);
-const JOINTS = [...BODY, { name: 'axe', at: FIST_R, parent: B.foreR }, { name: 'pick', at: FIST_R, parent: B.foreR }];
+const JOINTS = [...BODY, { name: 'axe', at: FIST_R, parent: B.torso }, { name: 'pick', at: FIST_R, parent: B.torso }];
 const { J } = rig(JOINTS);
 
 // "team" and "teamDark" are the faction colours: recolour those two texels for another player.
@@ -55,6 +55,6 @@ const PARTS = [
   ...toolParts(J, FIST_R, 1.15, { wood: 'wood', grip: 'leather', head: 'iron', edge: 'steel', team: 'team' }),
 ];
 
-const CLIPS = workerClips({ JOINTS, at: v => [v[0] * SX, v[1] * SY, v[2] * SZ], grow, HAND, k: 1.15 });
+const CLIPS = workerClips({ JOINTS, at: v => [v[0] * SX, v[1] * SY, v[2] * SZ], grow, HAND, k: 1.15, back: { x: 0.08, y: 1.12, z: -0.23 } });
 
-export default { name: 'orc-worker', joints: JOINTS, palette: PALETTE, parts: PARTS, clips: CLIPS, worker: true, preview: 'idle@0.6,run@0.16,chop@0.5,mine@0.62,death@1.3' };
+export default { name: 'orc-worker', joints: JOINTS, palette: PALETTE, parts: PARTS, clips: CLIPS, worker: true, previewGap: 42, preview: 'idle@0.6,run@0.16,chop@0.5,mine@0.62,death@1.3' };
