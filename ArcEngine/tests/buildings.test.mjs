@@ -228,3 +228,47 @@ test('срубные стена, башня и ворота: секции по 1
   assert.equal(planks(gate).length, 22, 'доски створок закрывают проём');
   assert.equal(planks(open).length, 0, 'в открытом проёме досок нет');
 });
+
+const ORC_TIERS = [
+  { tier: 'palisade', human: 'palisade', wall: 'orc-palisade-segment', humanWall: 'palisade-segment' },
+  { tier: 'timber', human: 'timber', wall: 'orc-timber-wall-segment', humanWall: 'timber-wall-segment' },
+  { tier: 'stone', human: 'stone', wall: 'orc-stone-wall-segment', humanWall: 'stone-wall-segment' },
+];
+
+test('орочьи укрепления: три яруса по четыре модели, секции по 10 м, выше человеческих, кости и черепа, огонь на башнях, цвет команды', () => {
+  const by = n => BUILDINGS.find(b => b.name === n);
+  const bounds = b => {
+    const { gltf } = parseGlb(buildGlb(b));
+    return gltf.accessors[gltf.meshes[0].primitives[0].attributes.POSITION];
+  };
+  for (const { tier, wall, humanWall } of ORC_TIERS) {
+    const names = [wall, `orc-${tier}-tower`, `orc-${tier}-gate`, `orc-${tier}-gate-open`];
+    for (const n of names) {
+      const b = by(n);
+      assert.ok(b && b.folder === '3D-models-defense', n);
+      assert.ok(b.parts.some(p => p.color === 'team') && b.parts.some(p => p.color === 'teamDark'), n + ': цвет команды');
+      assert.ok(b.parts.filter(p => p.color === 'bone').length >= 5, n + ': кости и черепа');
+      assert.ok(b.palette.some(c => c.name === 'fire') && b.palette.length === 16, n + ': одна палитра на 16 цветов');
+    }
+    for (const n of [wall, names[2], names[3]]) {
+      const { min, max } = bounds(by(n));
+      assert.ok(Math.abs(min[0] + 5) < 1e-5 && Math.abs(max[0] - 5) < 1e-5, n + ': от -5 до +5 м, стыкуется со своей стеной');
+    }
+    // The footprint (parts that stand on the ground) is centred on the wall line; flags and horns may stick out on one side.
+    const foot = by(names[1]).parts.filter(p => p.s && !p.q && p.c[1] - p.s[1] / 2 < 1e-6);
+    assert.ok(Math.abs(Math.min(...foot.map(p => p.c[0] - p.s[0] / 2)) + Math.max(...foot.map(p => p.c[0] + p.s[0] / 2))) < 0.05, names[1] + ': башня на оси стены');
+    assert.ok(by(names[1]).parts.some(p => p.color === 'fire'), names[1] + ': жаровня с огнём');
+    assert.ok(bounds(by(wall)).max[1] > bounds(by(humanWall)).max[1], wall + ' выше человеческой');
+    assert.ok(bounds(by(names[1])).max[1] > bounds(by(`${tier === 'palisade' ? 'palisade' : tier}-tower`)).max[1] - 1.5, names[1] + ': не ниже человеческой башни');
+
+    // Gates: closed leaves fill the opening, open ones leave it free.
+    const planks = b => b.parts.filter(p => p.s && !p.q && ['wood', 'woodDark', 'woodLight'].includes(p.color) && Math.abs(p.c[0]) < 2.2 && p.s[0] > 0.15 && p.s[1] > 1.5 && p.s[1] < 4.5);
+    assert.ok(planks(by(names[2])).length >= 14, names[2] + ': створки закрывают проём');
+    assert.equal(planks(by(names[3])).length, 0, names[3] + ': в открытом проёме досок нет');
+  }
+  // Pointed merlons (a charred tip each) on the walls and over the gates of the log and stone tiers; twenty crooked logs in the palisade.
+  const tips = b => b.parts.filter(p => p.n === 4 && p.h === 0.4 && p.color === 'char').length;
+  for (const n of ['orc-timber-wall-segment', 'orc-timber-gate', 'orc-stone-wall-segment', 'orc-stone-gate']) assert.equal(tips(by(n)), 6, n + ': шесть острых зубцов');
+  assert.equal(by('orc-palisade-segment').parts.filter(p => p.n === 6 && p.r[1] === 0.03 && p.color === 'char').length, 20, 'двадцать брёвен с обожжёнными остриями');
+  assert.ok(by('orc-stone-gate').parts.filter(p => p.n === 4 && p.color === 'bone').length >= 5, 'клыки в пасти арки');
+});
