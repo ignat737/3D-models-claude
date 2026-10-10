@@ -3,6 +3,7 @@
 // skeleton and no animations; every colour is a texel of the palette.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import path from 'node:path';
 import { test } from 'node:test';
 import { BUILDINGS, MAX_TRIANGLES, buildGlb, buildMesh, outOf } from '../tools/make-buildings.mjs';
 
@@ -341,4 +342,80 @@ test('орочьи укрепления: три яруса по четыре м�
   for (const n of ['orc-timber-wall-segment', 'orc-timber-gate', 'orc-stone-wall-segment', 'orc-stone-gate']) assert.equal(tips(by(n)), 6, n + ': шесть острых зубцов');
   assert.equal(by('orc-palisade-segment').parts.filter(p => p.n === 6 && p.r[1] === 0.03 && p.color === 'char').length, 20, 'двадцать брёвен с обожжёнными остриями');
   assert.ok(by('orc-stone-gate').parts.filter(p => p.n === 4 && p.color === 'bone').length >= 5, 'клыки в пасти арки');
+});
+
+const ORC_BUILDINGS = ['orc-hut', 'orc-barracks', 'orc-fortress', 'orc-smithy', 'orc-sawmill', 'orc-troll-lair'];
+
+test('орочьи здания: в папке зданий, палитра орочьих укреплений, цвет команды, кости, огонь, габариты не меньше человеческих двойников', () => {
+  const by = n => BUILDINGS.find(b => b.name === n);
+  const wall = by('orc-stone-wall-segment');
+  const twins = { 'orc-hut': 'peasant-house', 'orc-barracks': 'barracks', 'orc-smithy': 'smithy', 'orc-sawmill': 'sawmill' };
+  for (const n of ORC_BUILDINGS) {
+    const b = by(n);
+    assert.ok(b && !b.folder, n);
+    assert.ok(outOf(b).endsWith(`3D-models-buildings${path.sep}${n}.glb`), n);
+    assert.deepEqual(b.palette, wall.palette, n + ': палитра орочьих укреплений');
+    assert.ok(b.parts.some(p => p.color === 'team') && b.parts.some(p => p.color === 'teamDark'), n + ': цвет команды');
+    assert.ok(b.parts.filter(p => p.color === 'bone').length >= 5, n + ': кости и черепа');
+    assert.ok(b.parts.some(p => p.color === 'fire'), n + ': огонь');
+    if (twins[n]) {
+      const a = bounds(b), h = bounds(by(twins[n]));
+      assert.ok(a.max[0] - a.min[0] >= h.max[0] - h.min[0] - 1.5 && a.max[2] - a.min[2] >= h.max[2] - h.min[2] - 1.5, n + ': не меньше двойника по плану');
+    }
+  }
+});
+
+test('орочьи здания: хижина, барак и кузница стоят на человеческом плане, барак длиннее и выше хижины, дверь проходима', () => {
+  const by = n => BUILDINGS.find(b => b.name === n), size = n => { const { min, max } = bounds(by(n)); return max.map((v, k) => v - min[k]); };
+  const hut = by('orc-hut'), barracks = by('orc-barracks');
+  assert.ok(size('orc-hut')[0] >= 4.2 && size('orc-hut')[2] >= 3.2, 'хижина 4,2 x 3,2 м по стенам');
+  assert.ok(size('orc-barracks')[0] > size('orc-hut')[0] + 2 && bounds(barracks).max[1] > bounds(hut).max[1] + 0.5, 'барак длиннее и выше');
+  const gateOf = b => b.parts.find(p => p.s && p.color === 'slit' && p.s[1] > 1.6 && p.s[1] < 2.6 && p.s[0] >= 0.9 && p.s[2] < 0.1);
+  assert.ok(gateOf(hut) && gateOf(barracks), 'проём двери в рост орка (1,85 м)');
+  assert.ok(barracks.parts.filter(p => p.s && p.color === 'iron' && p.s[0] > 0.8 && p.s[1] < 0.2).length >= 6, 'железные полосы створок');
+  assert.ok(barracks.parts.some(p => p.n === 8 && p.color === 'hide'), 'барабан');
+  assert.ok(barracks.parts.filter(p => p.s && p.color === 'iron').length >= 8, 'топоры на стойке');
+});
+
+test('орочья кузница: горн с огнём, наковальня, труба с огнём выше конька, череп на трубе', () => {
+  const b = BUILDINGS.find(p => p.name === 'orc-smithy');
+  assert.ok(b.parts.filter(p => p.color === 'fire').length >= 3, 'огонь в горне (пасть и угли) и на трубе');
+  assert.ok(b.parts.some(p => p.color === 'iron' && p.s && p.s[0] > 0.7 && p.s[1] < 0.2), 'наковальня');
+  const roofTop = Math.max(...b.parts.filter(p => p.s && p.color === 'iron' && p.q).map(p => p.c[1] + p.s[1] / 2));
+  const chimney = b.parts.find(p => p.s && p.color === 'stoneDark' && p.s[1] > 5);
+  assert.ok(chimney && chimney.c[1] + chimney.s[1] / 2 > roofTop + 1.5, 'труба выше крыши');
+});
+
+test('орочья лесопилка: открытый навес на шести столбах, рамная пила с зубьями, ворот с четырьмя рычагами, брёвна со светлыми срезами', () => {
+  const b = BUILDINGS.find(p => p.name === 'orc-sawmill');
+  assert.equal(b.parts.filter(p => p.h === 3 && p.n === 6 && p.r[0] === 0.23).length, 6, 'шесть столбов');
+  assert.ok(b.parts.filter(p => p.n === 4 && p.color === 'iron' && p.r[1] < 0.03).length >= 6, 'зубья пилы');
+  assert.ok(b.parts.some(p => p.s && p.color === 'iron' && p.s[0] > 1.4 && p.s[1] > 0.4 && p.s[2] < 0.05), 'полотно пилы');
+  assert.ok(b.parts.filter(p => p.n === 4 && p.color === 'bone').length >= 4, 'костяные шипы на рычагах ворота');
+  assert.ok(b.parts.filter(p => p.n === 6 && p.color === 'woodLight' && p.h < 0.05).length >= 3, 'светлые срезы брёвен');
+  assert.ok(!b.parts.some(p => p.s && p.c[2] > 1.5 && p.s[0] > 3 && p.s[1] > 1.5 && p.c[1] - p.s[1] / 2 < 0.5), 'передняя сторона открыта');
+});
+
+test('орочья крепость: 12,4 x 10,4 м по осям стен, четыре угловые башни, пасть ворот с зубьями, донжон выше башен', () => {
+  const b = BUILDINGS.find(p => p.name === 'orc-fortress');
+  const wallLong = b.parts.find(p => p.s && p.s[0] === 12.4 && p.color === 'stoneDark');
+  const wallShort = b.parts.find(p => p.s && p.s[2] === 10.4 && p.color === 'stoneDark');
+  assert.ok(wallLong && wallShort, 'стены 12,4 x 10,4 м');
+  const towers = b.parts.filter(p => p.s && p.s[0] === 2.8 && p.s[1] === 6.4 && p.color === 'stone');
+  assert.equal(towers.length, 4, 'четыре башни');
+  assert.ok(b.parts.filter(p => p.n === 4 && p.color === 'bone' && p.r[0] === 0.1).length >= 7, 'зубы над воротами');
+  const keep = b.parts.find(p => p.s && p.s[1] === 5 && p.color === 'stone');
+  assert.ok(keep && bounds(b).max[1] > 6.4 + 4, 'донжон с крышей и тотемом выше башен');
+  const gate = b.parts.find(p => p.s && p.color === 'slit' && p.s[0] === 2.8 && p.s[1] === 3.4);
+  assert.ok(gate, 'проём ворот 2,8 x 3,4 м: тролль проходит');
+});
+
+test('логово троллей: пещера по росту тролля (2,5 м), гигантский череп над входом, бивни, дубины, очаг', () => {
+  const b = BUILDINGS.find(p => p.name === 'orc-troll-lair');
+  const mouth = b.parts.find(p => p.s && p.color === 'slit' && p.s[0] >= 3.5);
+  assert.ok(mouth && mouth.s[1] >= 3.2, 'вход 3,6 x 3,4 м');
+  assert.ok(b.parts.some(p => p.s && p.color === 'bone' && p.s[0] >= 0.85), 'гигантский череп');
+  assert.ok(b.parts.filter(p => p.n === 4 && p.color === 'bone' && p.r[0] >= 0.14).length >= 4, 'четыре звена бивней');
+  assert.equal(b.parts.filter(p => p.n === 5 && p.color === 'woodDark' && p.r[1] === 0.28).length, 2, 'две дубины');
+  assert.ok(bounds(b).max[1] > 5, 'курган выше входа');
 });

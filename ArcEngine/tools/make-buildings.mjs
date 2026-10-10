@@ -18,6 +18,12 @@ import stable from './buildings/stable.mjs';
 import sawmill from './buildings/sawmill.mjs';
 import townHall from './buildings/town-hall.mjs';
 import castle from './buildings/castle.mjs';
+import orcHut from './buildings/orc-hut.mjs';
+import orcBarracks from './buildings/orc-barracks.mjs';
+import orcSmithy from './buildings/orc-smithy.mjs';
+import orcSawmill from './buildings/orc-sawmill.mjs';
+import orcFortress from './buildings/orc-fortress.mjs';
+import orcTrollLair from './buildings/orc-troll-lair.mjs';
 import palisadeSegment from './defense/palisade-segment.mjs';
 import palisadeTower from './defense/palisade-tower.mjs';
 import stoneWallSegment from './defense/stone-wall-segment.mjs';
@@ -42,7 +48,7 @@ import spruce from './plants/spruce.mjs';
 
 const ROOT = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), '..');
 const OUT_DIR = path.join(ROOT, '3D-models', '3D-models-buildings');
-const BUILDINGS = [peasantHouse, barracks, smithy, stable, sawmill, townHall, castle, palisadeSegment, palisadeTower, palisadeGate, palisadeGateOpen, stoneWallSegment, stoneTower, stoneGate, stoneGateOpen, timberWallSegment, timberTower, timberGate, timberGateOpen, orcPalisadeSegment, orcPalisadeTower, orcPalisadeGate, orcPalisadeGateOpen, orcTimberWallSegment, orcTimberTower, orcTimberGate, orcTimberGateOpen, orcStoneWallSegment, orcStoneTower, orcStoneGate, orcStoneGateOpen, spruce, oak, pine];
+const BUILDINGS = [peasantHouse, barracks, smithy, stable, sawmill, townHall, castle, orcHut, orcBarracks, orcSmithy, orcSawmill, orcFortress, orcTrollLair, palisadeSegment, palisadeTower, palisadeGate, palisadeGateOpen, stoneWallSegment, stoneTower, stoneGate, stoneGateOpen, timberWallSegment, timberTower, timberGate, timberGateOpen, orcPalisadeSegment, orcPalisadeTower, orcPalisadeGate, orcPalisadeGateOpen, orcTimberWallSegment, orcTimberTower, orcTimberGate, orcTimberGateOpen, orcStoneWallSegment, orcStoneTower, orcStoneGate, orcStoneGateOpen, spruce, oak, pine];
 // The triangle budget of every building (units: 1000). One draw call each, there are few of them.
 const MAX_TRIANGLES = 2500;
 const outOf = building => path.join(ROOT, '3D-models', building.folder || '3D-models-buildings', building.name + '.glb');
