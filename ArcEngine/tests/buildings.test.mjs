@@ -71,6 +71,76 @@ test('казарма: два этажа выше дома, длиннее его
   assert.ok(buildMesh(barracks).indices.length / 3 > buildMesh(house).indices.length / 3);
 });
 
+const BIG = ['smithy', 'stable', 'sawmill', 'town-hall', 'castle'];
+
+test('кузня, конюшня, лесопилка, ратуша и замок: в папке зданий, цвет команды двумя текселями, габариты в пределах', () => {
+  const by = n => BUILDINGS.find(b => b.name === n);
+  for (const n of BIG) {
+    const b = by(n);
+    assert.ok(b, n);
+    assert.ok(!b.folder || b.folder === '3D-models-buildings', n);
+    assert.ok(b.parts.some(p => p.color === 'team') && b.parts.some(p => p.color === 'teamDark'), n + ': цвет команды');
+    const { min, max } = bounds(b);
+    assert.ok(max[1] > 3.5 && max[1] < 16, n + ': высота ' + max[1]);
+    assert.ok(max[0] - min[0] > 4.5 && max[2] - min[2] > 4, n + ': не меньше дома');
+  }
+});
+
+test('кузня: горн с огнём, наковальня, труба выше конька, корыто с водой, вывеска и ставни цвета команды', () => {
+  const b = BUILDINGS.find(p => p.name === 'smithy');
+  assert.ok(b.parts.filter(p => p.color === 'fire').length >= 3, 'огонь в горне и на трубе');
+  assert.ok(b.parts.some(p => p.color === 'iron' && p.s && p.s[0] > 0.6 && p.s[1] < 0.2), 'наковальня');
+  assert.ok(b.parts.some(p => p.color === 'water'), 'вода в корыте');
+  const chimney = Math.max(...b.parts.filter(p => p.s && p.color === 'stone' && p.c[0] > 2.8).map(p => p.c[1] + p.s[1] / 2));
+  assert.ok(chimney > bounds(b).max[1] - 3.0 && chimney > 5, 'труба выше конька');
+  assert.ok(b.parts.filter(p => p.color === 'team').length >= 4, 'ставни, вывеска, флаг');
+});
+
+test('конюшня: три стойла с полудверями и планками цвета команды, две лошади выглядывают, сено, соломенная крыша', () => {
+  const b = BUILDINGS.find(p => p.name === 'stable');
+  assert.equal(b.parts.filter(p => p.color === 'team' && p.s && p.s[0] > 1.8 && p.s[1] < 0.3).length, 3, 'три планки над стойлами');
+  assert.ok(b.parts.some(p => p.color === 'horseBay') && b.parts.some(p => p.color === 'horseWhite'), 'гнедая и белая лошади');
+  assert.ok(b.parts.filter(p => p.color === 'hay').length >= 5, 'тюки и сено');
+  assert.ok(b.parts.some(p => p.color === 'thatch'), 'солома');
+  const { min, max } = bounds(b);
+  assert.ok(max[0] - min[0] >= 8, 'длиннее казармы');
+});
+
+test('лесопилка: водяное колесо с лопастями, циркулярная пила, брёвна и доски, открытая сторона', () => {
+  const b = BUILDINGS.find(p => p.name === 'sawmill');
+  assert.ok(b.parts.filter(p => p.s && p.color === 'wood' && p.s[0] > 0.5 && p.s[1] < 0.1).length >= 8, 'восемь лопастей');
+  assert.ok(b.parts.some(p => p.n === 12 && p.color === 'steel'), 'диск пилы');
+  assert.ok(b.parts.filter(p => p.n === 6 && p.color === 'bark').length >= 7, 'брёвна');
+  assert.ok(b.parts.filter(p => p.color === 'woodLight').length >= 4, 'доски и срезы');
+  assert.ok(b.parts.some(p => p.color === 'water'), 'пруд и желоб');
+  assert.ok(!b.parts.some(p => p.s && p.c[2] > 2 && p.s[0] > 3 && p.s[1] > 1.5 && p.color !== 'woodDark' && p.c[1] - p.s[1] / 2 < 0.5), 'передняя сторона открыта');
+});
+
+test('ратуша: башня с часами выше конька, колокол, шатёр цвета команды с золотым навершием, балкон над дверью', () => {
+  const b = BUILDINGS.find(p => p.name === 'town-hall');
+  const roofTop = Math.max(...b.parts.filter(p => p.color === 'tile' && p.s).map(p => p.c[1] + p.s[1] / 2));
+  const spire = b.parts.find(p => p.n === 4 && p.color === 'team' && p.h >= 3);
+  assert.ok(spire && spire.c[1] - spire.h / 2 > roofTop, 'шатёр башни выше черепичной крыши');
+  assert.ok(b.parts.filter(p => p.n === 10 && p.color === 'gold').length >= 3, 'часы на трёх гранях');
+  assert.ok(b.parts.some(p => p.color === 'gold' && p.r && p.r[0] > 0.3 && p.r[1] < 0.2), 'колокол');
+  assert.ok(b.parts.some(p => p.color === 'timberLight' && p.s && p.s[0] > 2 && p.s[1] < 0.2 && p.c[1] > 3), 'балкон');
+  assert.ok(bounds(b).max[1] > 13, 'с флагом выше 13 м');
+});
+
+test('замок: четыре круглые башни с конусами цвета команды, ворота с решёткой и мостом, донжон выше стен, двор', () => {
+  const b = BUILDINGS.find(p => p.name === 'castle');
+  const cones = b.parts.filter(p => p.n === 8 && p.color === 'team' && p.r[1] < 0.1);
+  assert.equal(cones.length, 8, 'четыре угловые башни и четыре башенки донжона');
+  assert.ok(b.parts.filter(p => p.color === 'iron' && p.s && p.s[1] > 1.5).length >= 5, 'прутья решётки');
+  assert.ok(b.parts.some(p => p.color === 'timberLight' && p.q && p.s[2] > 2), 'опущенный мост');
+  assert.ok(b.parts.some(p => p.color === 'cobble'), 'мощёный двор');
+  const keep = b.parts.find(p => p.s && p.s[1] === 10 && p.color === 'stone');
+  const wall = b.parts.find(p => p.s && p.s[0] === 12.4 && p.color === 'stone');
+  assert.ok(keep && wall && keep.s[1] > 2 * wall.s[1], 'донжон выше стены вдвое');
+  const { min, max } = bounds(b);
+  assert.ok(max[0] - min[0] > 12, 'шире 12 м');
+});
+
 test('частокол: сегмент ровно 10 м вдоль X, стыкуется торцами, лежит в 3D-models-defense, цвет команды на вымпеле', () => {
   const wall = BUILDINGS.find(b => b.name === 'palisade-segment');
   assert.equal(wall.folder, '3D-models-defense');
