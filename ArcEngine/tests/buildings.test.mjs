@@ -39,7 +39,8 @@ for (const building of BUILDINGS) {
     assert.equal(bin.toString('latin1', img.byteOffset + 1, img.byteOffset + 4), 'PNG');
     assert.equal(gltf.samplers[0].minFilter, 9728, 'без мипмапов: палитра не сереет вдали');
     assert.ok(building.palette.length <= 16, 'палитра 4x4');
-    assert.ok(buildMesh(building).indices.length / 3 <= MAX_TRIANGLES, `не больше ${MAX_TRIANGLES} треугольников`);
+    const budget = building.maxTriangles || MAX_TRIANGLES;
+    assert.ok(buildMesh(building).indices.length / 3 <= budget, `не больше ${budget} треугольников`);
     // Stands on the ground, every UV at a texel centre (a part is one flat colour).
     assert.ok(Math.abs(gltf.accessors[p.attributes.POSITION].min[1]) < 1e-6);
     const uv = gltf.accessors[p.attributes.TEXCOORD_0], view = gltf.bufferViews[uv.bufferView];
@@ -375,6 +376,12 @@ test('орочьи здания: хижина, барак и кузница ст
   assert.ok(barracks.parts.filter(p => p.s && p.color === 'iron' && p.s[0] > 0.8 && p.s[1] < 0.2).length >= 6, 'железные полосы створок');
   assert.ok(barracks.parts.some(p => p.n === 8 && p.color === 'hide'), 'барабан');
   assert.ok(barracks.parts.filter(p => p.s && p.color === 'iron').length >= 8, 'топоры на стойке');
+  const { min, max } = bounds(barracks);
+  assert.ok(max[0] - min[0] >= 10 && max[2] - min[2] >= 6.4 && max[1] > 7.5, 'большой барак: от 10 x 6,4 м, выше 7,5 м');
+  const windows = barracks.parts.filter(p => p.s && p.color === 'slit' && p.s[2] === 0.04 && p.s[0] >= 0.7 && p.s[1] >= 0.8);
+  assert.ok(windows.length >= 9, 'окна на фасаде и задней стене');
+  assert.ok(windows.filter(p => p.c[1] > 4).length >= 4 && windows.filter(p => p.c[1] < 3).length >= 5, 'окна в два ряда на фасаде');
+  assert.ok(barracks.parts.filter(p => p.color === 'team' && p.s && p.s[0] === 0.26).length >= 18, 'ставни цвета команды');
 });
 
 test('орочья кузница: горн с огнём, наковальня, труба с огнём выше конька, череп на трубе', () => {
@@ -404,18 +411,23 @@ test('орочья крепость: 12,4 x 10,4 м по осям стен, че
   const towers = b.parts.filter(p => p.s && p.s[0] === 2.8 && p.s[1] === 6.4 && p.color === 'stone');
   assert.equal(towers.length, 4, 'четыре башни');
   assert.ok(b.parts.filter(p => p.n === 4 && p.color === 'bone' && p.r[0] === 0.1).length >= 7, 'зубы над воротами');
-  const keep = b.parts.find(p => p.s && p.s[1] === 5 && p.color === 'stone');
-  assert.ok(keep && bounds(b).max[1] > 6.4 + 4, 'донжон с крышей и тотемом выше башен');
+  const keep = b.parts.find(p => p.s && p.s[1] === 5.4 && p.color === 'stone');
+  assert.ok(keep && bounds(b).max[1] > 6.4 + 4, 'каменный донжон с чашей огня выше башен');
+  assert.ok(!b.parts.some(p => p.color === 'hide'), 'без шкур: крыши нет');
+  assert.ok(!b.parts.some(p => p.s && p.s[0] > 1 && p.c[1] > 5 && ['wood', 'woodDark', 'woodLight'].includes(p.color)), 'выше 5 м нет деревянных коробок: верх донжона каменный');
+  assert.ok(b.parts.filter(p => p.s && p.s[0] === 0.8 && p.s[1] === 0.5 && p.c[1] > 9 && p.color === 'stone').length >= 6, 'клыки-зубцы по краю донжона');
   const gate = b.parts.find(p => p.s && p.color === 'slit' && p.s[0] === 2.8 && p.s[1] === 3.4);
   assert.ok(gate, 'проём ворот 2,8 x 3,4 м: тролль проходит');
 });
 
 test('логово троллей: пещера по росту тролля (2,5 м), гигантский череп над входом, бивни, дубины, очаг', () => {
   const b = BUILDINGS.find(p => p.name === 'orc-troll-lair');
-  const mouth = b.parts.find(p => p.s && p.color === 'slit' && p.s[0] >= 3.5);
-  assert.ok(mouth && mouth.s[1] >= 3.2, 'вход 3,6 x 3,4 м');
+  const mouth = b.parts.find(p => p.s && p.color === 'slit' && p.s[0] >= 3.1);
+  assert.ok(mouth && mouth.s[1] >= 3.1 && mouth.s[1] <= 3.4, 'вход 3,2 x 3,1 м: тролль проходит');
   assert.ok(b.parts.some(p => p.s && p.color === 'bone' && p.s[0] >= 0.85), 'гигантский череп');
   assert.ok(b.parts.filter(p => p.n === 4 && p.color === 'bone' && p.r[0] >= 0.14).length >= 4, 'четыре звена бивней');
-  assert.equal(b.parts.filter(p => p.n === 5 && p.color === 'woodDark' && p.r[1] === 0.28).length, 2, 'две дубины');
-  assert.ok(bounds(b).max[1] > 5, 'курган выше входа');
+  assert.equal(b.parts.filter(p => p.n === 5 && p.color === 'woodDark' && p.r[1] === 0.34).length, 2, 'две дубины');
+  const { min, max } = bounds(b);
+  assert.ok(max[1] > 2.5 * mouth.s[1], 'курган выше входа в 2,5 раза и больше');
+  assert.ok(max[0] - min[0] >= 14 && max[2] - min[2] >= 16, 'курган шире 14 м, глубже 16 м вместе с двором');
 });
