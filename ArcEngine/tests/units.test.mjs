@@ -10,6 +10,8 @@ import { extentY } from '../tools/units/horse.mjs';
 import { SCALE, extentY as wolfExtentY } from '../tools/units/wolf.mjs';
 import { riderMinY } from '../tools/units/goblin-wolf-rider.mjs';
 import { HAND } from '../tools/units/humanoid.mjs';
+import { DEBRIS_JOINTS, lowest as catapultLowest } from '../tools/units/catapult.mjs';
+import { DEBRIS_JOINTS as BALLISTA_DEBRIS, lowest as ballistaLowest } from '../tools/units/orc-ballista.mjs';
 import { clashes, sampledPose } from './unit-collision.mjs';
 
 function parseGlb(buf) {
@@ -77,7 +79,7 @@ for (const unit of UNITS) {
     const death = unit.clips.find(c => c.name === 'death');
     assert.equal(death.loop, false);
     const hips = death.tracks.get('hips.translation');
-    if (!hips) return t.skip('смерть лошади — отдельный тест');
+    if (!hips) return t.skip('без таза (лошадь, волк, катапульта) — отдельный тест');
     assert.ok(hips[hips.length - 1][1] < 0.25, 'таз у земли');
   });
 }
@@ -598,5 +600,156 @@ test('всадник верхом: мечник сидит на седле (та
     const pose = poseAt(run, f), saddle = worldOf(pose, J.saddle), hips = worldOf(pose, J.rider_hips);
     const rel = qrot(qconj(saddle.q), sub(hips.p, saddle.p));   // in the saddle's frame: it pitches with the horse
     assert.ok(Math.abs(rel[0]) < 1e-6 && Math.abs(rel[1] - 0.13) < 0.03 && Math.abs(rel[2]) < 1e-6, `кадр ${f}: таз ${rel.map(v => v.toFixed(3))}`);
+  }
+});
+
+// Catapult: a machine, not a body — wheels instead of feet, a stone instead of a weapon, debris instead of a fall.
+const catapultUnit = () => UNITS.find(u => u.name === 'catapult');
+
+test('катапульта: клипы idle, run, attack, death; колёса на земле, в беге колесо делает один оборот за цикл', () => {
+  const unit = catapultUnit(), { J } = rig(unit.joints);
+  assert.deepEqual(unit.clips.map(c => c.name), ['idle', 'run', 'attack', 'death']);
+  assert.deepEqual(unit.clips.map(c => c.loop), [true, true, true, false]);
+  for (const clip of unit.clips.filter(c => c.name !== 'death')) {
+    for (let f = 0; f < clip.times.length; f++) {
+      const low = catapultLowest(poseAt(clip, f));
+      if (clip.name === 'attack') assert.ok(low > -1e-6, `attack кадр ${f}: под землёй на ${low}`);
+      else assert.ok(Math.abs(low) < 1e-6, `${clip.name} кадр ${f}: колёса ${(low * 100).toFixed(2)} см от земли`);
+    }
+  }
+  const run = unit.clips.find(c => c.name === 'run'), wheel = run.tracks.get('wheelFL.rotation');
+  assert.ok(Math.abs(Math.abs(wheel[(wheel.length - 1) / 2][0]) - 1) < 1e-9, 'полцикла — пол-оборота');
+  for (const w of ['wheelFR', 'wheelHL', 'wheelHR']) assert.deepEqual(run.tracks.get(w + '.rotation'), wheel, w);
+  assert.equal(J.stone !== undefined && unit.joints[J.stone].parent, J.body, 'камень на раме: летит независимо от рычага');
+});
+
+test('катапульта: камень в ложке, при выстреле летит вперёд и вверх, прячется масштабом (не 0), новый камень к концу цикла', () => {
+  const unit = catapultUnit(), { J, worldOf } = rig(unit.joints);
+  const inCup = sub(unit.joints[J.stone].at, unit.joints[J.armTip].at);
+  const cupError = (pose) => {
+    const tip = worldOf(pose, J.armTip);
+    return Math.hypot(...sub(worldOf(pose, J.stone).p, add(tip.p, qrot(tip.q, inCup))));
+  };
+  for (const name of ['idle', 'run']) {
+    const clip = unit.clips.find(c => c.name === name);
+    assert.equal(clip.tracks.has('stone.scale'), false, name + ': камень всегда виден');
+    for (let f = 0; f < clip.times.length; f++) assert.ok(cupError(poseAt(clip, f)) < 1e-6, `${name} кадр ${f}: камень не в ложке`);
+  }
+  const clip = unit.clips.find(c => c.name === 'attack'), scale = clip.tracks.get('stone.scale').map(s => s[0]);
+  assert.ok(Math.min(...scale) >= 0.02, 'масштаб никогда не 0');
+  for (let f = 0; f <= 10; f++) {
+    assert.equal(scale[f], 1, `кадр ${f}: камень виден`);
+    assert.ok(cupError(poseAt(clip, f)) < 1e-6, `кадр ${f}: камень в ложке до удара о подушку`);
+  }
+  const hit = worldOf(poseAt(clip, 10), J.stone).p, flown = worldOf(poseAt(clip, 17), J.stone).p;
+  assert.ok(flown[2] - hit[2] > 2 && flown[1] - hit[1] > 1.5, 'летит вперёд и вверх: ' + sub(flown, hit).map(v => v.toFixed(2)));
+  assert.equal(scale[17], 1);
+  assert.ok(scale[18] < 0.05, 'спрятан вдали, а не на пути обратно в ложку');
+  for (let f = 19; f < clip.times.length; f++) assert.ok(cupError(poseAt(clip, f)) < 1e-6, `кадр ${f}: новый камень в ложке`);
+  assert.equal(scale.at(-10), 1, 'к концу цикла камень снова заряжен');
+});
+
+test('катапульта: рычаг, ложка и камень не проходят сквозь стойку с подушкой ни в кадрах, ни между ними', () => {
+  const unit = catapultUnit(), name = p => unit.joints[p.joint].name;
+  assert.deepEqual(clashes(unit, ['idle', 'run', 'attack'], p => ['arm', 'armTip', 'stone'].includes(name(p)), p => name(p) === 'stand'), []);
+});
+
+test('катапульта: разрушение — ни один кадр не под землёй, рама легла углом на землю, обломки лежат на земле в стороне', () => {
+  const unit = catapultUnit(), { J, worldOf } = rig(unit.joints), all = unit.joints.map((_, i) => i);
+  const death = unit.clips.find(c => c.name === 'death');
+  for (let f = 0; f < death.times.length; f++) assert.ok(catapultLowest(poseAt(death, f), all) > -1e-3, `death кадр ${f}: ушла под землю`);
+  const end = poseAt(death, death.times.length - 1);
+  assert.ok(Math.abs(catapultLowest(end, [J.body])) < 1e-3, 'угол рамы без колеса на земле');
+  assert.ok(qrot(worldOf(end, J.body).q, [0, 1, 0])[1] < Math.cos(10 * Math.PI / 180), 'рама накренилась');
+  assert.deepEqual(DEBRIS_JOINTS, ['wheelFR', 'stone', 'armTip', 'board', 'pole']);
+  for (const name of DEBRIS_JOINTS) {
+    const p = worldOf(end, J[name]).p;
+    assert.ok(Math.abs(catapultLowest(end, [J[name]])) < 1e-3, name + ': лежит на земле');
+    assert.ok(Math.abs(p[0]) > 0.8 || Math.abs(p[2]) > 1.55, name + ': в стороне от рамы ' + p.map(v => v.toFixed(2)));
+  }
+});
+
+// Orc ballista: a crossbow on a cart. The claw (`nock`) slides along the stock, the bolt rides in it
+// until the arms reach straight, then flies; in death the bow is torn off its post.
+const ballistaUnit = () => UNITS.find(u => u.name === 'orc-ballista');
+const BOW = ['mount', 'bowL', 'bowR', 'nock', 'winch'];
+
+test('орочья баллиста: клипы idle, run, attack, death; колёса на земле, в беге колесо делает один оборот за цикл', () => {
+  const unit = ballistaUnit(), { J } = rig(unit.joints);
+  assert.deepEqual(unit.clips.map(c => c.name), ['idle', 'run', 'attack', 'death']);
+  assert.deepEqual(unit.clips.map(c => c.loop), [true, true, true, false]);
+  for (const clip of unit.clips.filter(c => c.name !== 'death')) {
+    for (let f = 0; f < clip.times.length; f++) {
+      const low = ballistaLowest(poseAt(clip, f));
+      if (clip.name === 'attack') assert.ok(low > -1e-6, `attack кадр ${f}: под землёй на ${low}`);
+      else assert.ok(Math.abs(low) < 1e-6, `${clip.name} кадр ${f}: колёса ${(low * 100).toFixed(2)} см от земли`);
+    }
+  }
+  const run = unit.clips.find(c => c.name === 'run'), wheel = run.tracks.get('wheelFL.rotation');
+  assert.ok(Math.abs(Math.abs(wheel[(wheel.length - 1) / 2][0]) - 1) < 1e-9, 'полцикла — пол-оборота');
+  for (const w of ['wheelFR', 'wheelHL', 'wheelHR']) assert.deepEqual(run.tracks.get(w + '.rotation'), wheel, w);
+  assert.equal(unit.joints[J.bolt].parent, J.body, 'болт на раме: летит независимо от ложа');
+});
+
+test('орочья баллиста: болт в когте, лук натянут в idle и run; при выстреле болт летит прямо вперёд, прячется масштабом (не 0), новый болт к концу цикла', () => {
+  const unit = ballistaUnit(), { J, worldOf } = rig(unit.joints);
+  const inClaw = (pose) => {
+    const nock = worldOf(pose, J.nock), bolt = worldOf(pose, J.bolt);
+    return Math.hypot(...sub(bolt.p, nock.p)) + Math.hypot(...sub(qrot(bolt.q, [0, 0, 1]), qrot(nock.q, [0, 0, 1])));
+  };
+  const drawn = pose => sub(worldOf(pose, J.mount).p, worldOf(pose, J.nock).p);
+  for (const name of ['idle', 'run']) {
+    const clip = unit.clips.find(c => c.name === name);
+    assert.equal(clip.tracks.has('bolt.scale'), false, name + ': болт всегда виден');
+    for (let f = 0; f < clip.times.length; f++) {
+      const pose = poseAt(clip, f);
+      assert.ok(inClaw(pose) < 1e-6, `${name} кадр ${f}: болт не в когте`);
+      assert.ok(Math.hypot(...drawn(pose)) > 0.4, `${name} кадр ${f}: коготь оттянут назад`);
+    }
+  }
+  const clip = unit.clips.find(c => c.name === 'attack'), scale = clip.tracks.get('bolt.scale').map(s => s[0]);
+  assert.ok(Math.min(...scale) >= 0.02, 'масштаб никогда не 0');
+  for (let f = 0; f <= 5; f++) {
+    assert.equal(scale[f], 1, `кадр ${f}: болт виден`);
+    assert.ok(inClaw(poseAt(clip, f)) < 1e-6, `кадр ${f}: болт в когте, пока плечи не распрямились`);
+  }
+  const shot = worldOf(poseAt(clip, 5), J.bolt).p, flown = worldOf(poseAt(clip, 10), J.bolt).p;
+  assert.ok(flown[2] - shot[2] > 4 && Math.abs(flown[1] - shot[1]) < 0.5 && Math.abs(flown[0] - shot[0]) < 1e-6, 'летит прямо и полого: ' + sub(flown, shot).map(v => v.toFixed(2)));
+  assert.equal(scale[10], 1);
+  assert.ok(scale[11] < 0.05, 'спрятан вдали, а не на пути обратно на ложе');
+  for (let f = 12; f < clip.times.length; f++) assert.ok(inClaw(poseAt(clip, f)) < 1e-6, `кадр ${f}: новый болт в когте`);
+  assert.equal(scale.at(-6), 1, 'к концу цикла болт снова заряжен');
+});
+
+test('орочья баллиста: коготь не сходит с ложа, болт не задевает лук, лук не задевает телегу, полотнища не проходят сквозь древко', () => {
+  const unit = ballistaUnit(), { J, worldOf } = rig(unit.joints), name = p => (p.span ? 'string' : unit.joints[p.joint].name);
+  const stock = unit.parts.find(p => p.joint === J.mount && p.s && p.s[2] > 1.5);
+  for (const clip of unit.clips.filter(c => c.name !== 'death')) {
+    for (let f = 0; f < clip.times.length; f++) {
+      const z = clip.tracks.get('nock.translation')[f][2] + unit.joints[J.mount].at[2] - stock.c[2];
+      assert.ok(Math.abs(z) < stock.s[2] / 2, `${clip.name} кадр ${f}: коготь за концом ложа`);
+    }
+  }
+  const solid = p => !p.span;
+  assert.deepEqual(clashes(unit, ['idle', 'run', 'attack'], p => solid(p) && name(p) === 'bolt', p => solid(p) && BOW.includes(name(p))), []);
+  assert.deepEqual(clashes(unit, ['idle', 'run', 'attack'], p => solid(p) && BOW.includes(name(p)), p => solid(p) && !BOW.includes(name(p)) && name(p) !== 'bolt'), []);
+  // The strips hang from the bone bar (they touch it); the shaft is the tall box.
+  assert.deepEqual(clashes(unit, ['idle', 'run', 'attack'], p => name(p) === 'banner', p => name(p) === 'pole' && p.s[1] > 1), []);
+});
+
+test('орочья баллиста: разрушение — ни один кадр не под землёй, рама легла углом на землю, лук сорван со стойки и лежит плашмя, обломки на земле в стороне', () => {
+  const unit = ballistaUnit(), { J, worldOf } = rig(unit.joints), all = unit.joints.map((_, i) => i);
+  const death = unit.clips.find(c => c.name === 'death');
+  for (let f = 0; f < death.times.length; f++) assert.ok(ballistaLowest(poseAt(death, f), all) > -1e-3, `death кадр ${f}: ушла под землю`);
+  const end = poseAt(death, death.times.length - 1);
+  assert.ok(Math.abs(ballistaLowest(end, [J.body])) < 1e-3, 'угол рамы без колеса на земле');
+  assert.ok(qrot(worldOf(end, J.body).q, [0, 1, 0])[1] < Math.cos(10 * Math.PI / 180), 'рама накренилась');
+  assert.ok(qrot(worldOf(end, J.mount).q, [0, 1, 0])[1] > Math.cos(5 * Math.PI / 180), 'лук лежит плашмя');
+  assert.deepEqual(BALLISTA_DEBRIS, ['wheelFL', 'bolt', 'mount', 'pole']);
+  const tree = { mount: BOW.map(n => J[n]), pole: [J.pole, J.banner] };
+  for (const name of BALLISTA_DEBRIS) {
+    const p = worldOf(end, J[name]).p;
+    assert.ok(Math.abs(ballistaLowest(end, tree[name] || [J[name]])) < 1e-3, name + ': лежит на земле');
+    assert.ok(Math.abs(p[0]) > 0.8 || Math.abs(p[2]) > 1.4, name + ': в стороне от рамы ' + p.map(v => v.toFixed(2)));
   }
 });
