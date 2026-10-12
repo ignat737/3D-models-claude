@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
 import { BUILDINGS, MAX_TRIANGLES, buildGlb, buildMesh, outOf } from '../tools/make-buildings.mjs';
+import { qrot } from '../tools/unit-glb.mjs';
 
 function parseGlb(buf) {
   assert.equal(buf.toString('latin1', 0, 4), 'glTF');
@@ -376,12 +377,27 @@ test('орочьи здания: хижина, барак и кузница ст
   assert.ok(barracks.parts.filter(p => p.s && p.color === 'iron' && p.s[0] > 0.8 && p.s[1] < 0.2).length >= 6, 'железные полосы створок');
   assert.ok(barracks.parts.some(p => p.n === 8 && p.color === 'hide'), 'барабан');
   assert.ok(barracks.parts.filter(p => p.s && p.color === 'iron').length >= 8, 'топоры на стойке');
-  const { min, max } = bounds(barracks);
-  assert.ok(max[0] - min[0] >= 10 && max[2] - min[2] >= 6.4 && max[1] > 7.5, 'большой барак: от 10 x 6,4 м, выше 7,5 м');
-  const windows = barracks.parts.filter(p => p.s && p.color === 'slit' && p.s[2] === 0.04 && p.s[0] >= 0.7 && p.s[1] >= 0.8);
-  assert.ok(windows.length >= 9, 'окна на фасаде и задней стене');
-  assert.ok(windows.filter(p => p.c[1] > 4).length >= 4 && windows.filter(p => p.c[1] < 3).length >= 5, 'окна в два ряда на фасаде');
-  assert.ok(barracks.parts.filter(p => p.color === 'team' && p.s && p.s[0] === 0.26).length >= 18, 'ставни цвета команды');
+});
+
+test('орочий барак: шестиугольный план — гекс-цоколь, стены из брёвен по трём осям, гекс-крыша, окна на пяти гранях, дверь на шестой', () => {
+  const b = BUILDINGS.find(p => p.name === 'orc-barracks');
+  assert.ok(b.parts.some(p => p.n === 6 && p.color === 'stoneDark' && !p.q && p.r[0] > 5.5 && p.h < 0.5), 'шестигранный цоколь');
+  assert.ok(b.parts.some(p => p.n === 6 && p.color === 'hide' && p.r[0] > 5.5 && p.r[1] < 1.5), 'шестигранная крыша из шкур');
+  // Logs longer than 3 m: the axes fall into three directions 60 degrees apart, on all six sides.
+  const logs = b.parts.filter(p => p.n === 6 && p.q && p.h > 3 && ['wood', 'woodDark', 'woodLight'].includes(p.color));
+  const dirs = logs.map(p => {
+    const [x, , z] = qrot(p.q, [0, 1, 0]);
+    return Math.round(((Math.atan2(z, x) * 180 / Math.PI) % 180 + 180) % 180) % 180;
+  });
+  assert.deepEqual([...new Set(dirs)].sort((a, c) => a - c), [0, 60, 120], 'стены по трём осям шестиугольника');
+  assert.equal(new Set(logs.map(p => Math.floor((Math.atan2(p.c[2], p.c[0]) * 180 / Math.PI + 360) / 60) % 6)).size, 6, 'брёвна на всех шести сторонах');
+  const { min, max } = bounds(b);
+  assert.ok(max[0] - min[0] >= 10.4 && max[1] > 8.5, 'от 10,4 м между углами, выше 8,5 м с фонарём');
+  const windows = b.parts.filter(p => p.s && p.color === 'slit' && p.s[2] === 0.04);
+  assert.equal(windows.length, 15, 'три окна на каждой из пяти граней');
+  assert.ok(windows.every(p => Math.hypot(p.c[0], p.c[2]) > 4.5), 'окна в стенах, не в глубине');
+  assert.ok(!windows.some(p => Math.abs(p.c[0]) < 3 && p.c[2] > 4), 'на фасаде с дверью окон нет');
+  assert.ok(b.parts.filter(p => p.color === 'team' && p.s && p.s[0] === 0.26).length >= 20, 'ставни цвета команды');
 });
 
 test('орочья кузница: горн с огнём, наковальня, труба с огнём выше конька, череп на трубе', () => {

@@ -3,7 +3,7 @@
 // horns, braziers) come from the orc fortifications in tools/defense/orc-common.mjs, so a building
 // and a wall look like one people's work. Model space as everywhere: meters, feet at y = 0, the
 // front (door) faces +Z, a roof ridge runs along X.
-import { DEG, qmul, rotX, rotY, rotZ } from '../unit-glb.mjs';
+import { DEG, qmul, qrot, rotX, rotY, rotZ } from '../unit-glb.mjs';
 import { PALETTE, banner, beam, box, brazier, faceSpike, horn, onFace, pointed, rnd, skull, slit, spike, spikeRows } from '../defense/orc-common.mjs';
 
 export { PALETTE, banner, beam, box, brazier, faceSpike, horn, onFace, pointed, rnd, skull, slit, spike, spikeRows };
@@ -115,4 +115,14 @@ export const firePit = (x, z, r = 0.5) => [
   ...[0, 1, 2, 3, 4].map(i => rock(x + Math.cos(i * 1.26) * r * 0.95, z + Math.sin(i * 1.26) * r * 0.95, 0.15, 0.2, 'stone', { turn: i * 40 })),
 ];
 
-export { DEG, qmul, rotX, rotY, rotZ };
+// Turn finished parts about the vertical axis through the origin by `psi` (radians): a face built on
+// the +Z side becomes the face at any other angle (a hexagonal building is one face built six times).
+export function spin(parts, psi) {
+  const q = rotY(psi);
+  return parts.map(p => {
+    const c = qrot(q, p.c);
+    return p.q ? { ...p, c, q: qmul(q, p.q), pivot: qrot(q, p.pivot || p.c) } : { ...p, c, q, pivot: c };
+  });
+}
+
+export { DEG, qmul, qrot, rotX, rotY, rotZ };
