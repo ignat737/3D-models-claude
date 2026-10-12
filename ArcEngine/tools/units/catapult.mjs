@@ -9,7 +9,8 @@
 // cocks the arm again, a new stone appears in the cup) — looped; "death" (a wheel breaks off, the
 // frame drops onto that corner, the arm snaps, the stop beam racks, the mantlet and the pennant
 // fall off, the debris lies on the ground) — once.
-import { DEG, add, buildMesh, fromTo, lerp, loopClip, norm, onceClip, qmul, qrot, rig, rotX, rotY, rotZ, sub } from '../unit-glb.mjs';
+import { DEG, add, loopClip, norm, onceClip, qmul, qrot, rotX, rotY, rotZ, sub } from '../unit-glb.mjs';
+import { I, SIDES, along, beam, clamp01, machine, ratchet, smooth } from './siege-kit.mjs';
 
 const R = 0.42;                    // wheel radius = axle height
 const PIVOT = [0, 0.74, 0.35];     // the arm's axle in the skein
@@ -47,10 +48,6 @@ const PALETTE = [
   { name: 'trim', hex: '#e2b545' },
 ];
 
-const SIDES = [1, -1];
-const AXIS_X = rotZ(90 * DEG);   // a round part turned so that its axis runs along X
-const along = (c, h, r, n, joint, color) => ({ c, h, r, n, joint, color, q: AXIS_X });
-const beam = (a, b, w, joint, color) => ({ c: lerp(a, b, 0.5), s: [w, Math.hypot(...sub(b, a)), w], q: fromTo([0, 1, 0], sub(b, a)), joint, color });
 const WHEELS = ['wheelFL', 'wheelFR', 'wheelHL', 'wheelHR'];
 
 const PARTS = [
@@ -104,46 +101,12 @@ const PARTS = [
   { c: [0, 1.04, 1.496], s: [0.42, 0.10, 0.012], joint: J.board, color: 'trim' },
 ];
 
-const { worldOf, aimJoint, placeJoint } = rig(JOINTS);
-const I = [0, 0, 0, 1];
-const clamp01 = x => Math.min(1, Math.max(0, x));
-const smooth = x => { const k = clamp01(x); return k * k * (3 - 2 * k); };
-const bindT = name => { const j = JOINTS[J[name]]; return sub(j.at, JOINTS[j.parent].at); };
-const slerp = (a, b, k) => {
-  let c = a.reduce((s, v, i) => s + v * b[i], 0);
-  const sign = c < 0 ? -1 : 1;
-  c = Math.min(1, Math.abs(c));
-  const ang = Math.acos(c), sin = Math.sin(ang);
-  const wa = sin < 1e-6 ? 1 - k : Math.sin((1 - k) * ang) / sin, wb = (sin < 1e-6 ? k : Math.sin(k * ang) / sin) * sign;
-  return a.map((v, i) => v * wa + b[i] * wb);
-};
-
-// Vertices of every part relative to its joint: exact ground contact (an octagonal wheel rolls on
-// its corners, a fallen piece rests on its lowest corner).
-const VERTS = PARTS.map((p) => {
-  const m = buildMesh({ name: 'catapult', palette: PALETTE, joints: JOINTS, parts: [p] }), seen = new Map();
-  for (let i = 0; i < m.positions.length; i += 3) {
-    const v = sub(m.positions.slice(i, i + 3), JOINTS[p.joint].at);
-    seen.set(v.map(x => x.toFixed(6)).join(), v);
-  }
-  return [...seen.values()];
-});
-const lowestOf = (joint, q, p) => PARTS.reduce((low, part, i) => (part.joint !== joint ? low
-  : VERTS[i].reduce((l, v) => Math.min(l, p[1] + qrot(q, v)[1]), low)), Infinity);
-
-// Lowest point of the parts on the given joints (all but the stone by default) under a pose.
-export function lowest(pose, joints = LIVE) {
-  const W = JOINTS.map((_, i) => worldOf(pose, i));
-  return joints.reduce((low, j) => Math.min(low, lowestOf(j, W[j].q, W[j].p)), Infinity);
-}
+const M = machine({ name: 'catapult', joints: JOINTS, palette: PALETTE, parts: PARTS });
+const { worldOf, aimJoint, placeJoint, bindT, ground } = M;
 const LIVE = JOINTS.map((_, i) => i).filter(i => i !== J.stone);
 
-// Body at its bind height, then lowered or lifted so that the lowest point of `joints` is at `lift`.
-function ground(pose, joints, lift = 0) {
-  pose['body.translation'] = [...JOINTS[J.body].at];
-  pose['body.translation'][1] += lift - lowest(pose, joints);
-  return pose;
-}
+// Lowest point of the parts on the given joints (all but the stone by default) under a pose.
+export const lowest = (pose, joints = LIVE) => M.lowest(pose, joints);
 
 // The stone in the cup (scale: shown 1 / hidden 0.02 — never 0, see the units skill).
 const IN_CUP = sub(JOINTS[J.stone].at, JOINTS[J.armTip].at);
@@ -178,7 +141,6 @@ const run = (t) => {
 // windlass unwinds during the swing and cranks the arm down again in six pulls (0.30–0.84); a new
 // stone appears in the cup (0.84–0.90). The windlass ends where it began: the loop has no seam.
 const F = 90, DURATION = 3.0, U_FIRE = 5 / F, U_HIT = 10 / F, U_GONE = 18 / F, WIND = 450;
-const ratchet = k => k - Math.sin(12 * Math.PI * k) / (12 * Math.PI);
 const winding = u => ratchet(clamp01((u - 0.30) / 0.54));
 function armAngle(u) {
   if (u < U_FIRE) return COCKED;
@@ -214,12 +176,7 @@ function attack(t) {
 const DIAG = norm([1.44, 0, 1.80]);
 const tilt = a => [DIAG[0] * Math.sin(a / 2), 0, DIAG[2] * Math.sin(a / 2), Math.cos(a / 2)];
 const BASE = [J.body, J.wheelFL, J.wheelHL, J.wheelHR];
-const TILT = (() => {
-  const gap = (a) => { const pose = { 'body.rotation': tilt(a) }; return lowest(pose, [J.body]) - lowest(pose, BASE.slice(1)); };
-  let lo = 0, hi = 30 * DEG;
-  for (let i = 0; i < 50; i++) { const mid = (lo + hi) / 2; if (gap(mid) > 0) lo = mid; else hi = mid; }
-  return lo;
-})();
+const TILT = M.tiltAngle(DIAG, [J.body], BASE.slice(1));
 const WHEEL_OFF = 0.06;
 
 // Everything still attached: the frame jolts and tips, the arm slams into the cushion (0.10–0.18),
@@ -245,44 +202,16 @@ function attached(u) {
   return loadStone(ground(pose, u < WHEEL_OFF ? [...BASE, J.wheelFR] : BASE));
 }
 
-// A loose piece with the joints hanging on it (the pole carries the flag, unrotated in death).
-function pieceLowest(j, q, p) {
-  let low = Infinity;
-  JOINTS.forEach((k, i) => {
-    if (i === j || k.parent === j) low = Math.min(low, lowestOf(i, q, add(p, qrot(q, sub(k.at, JOINTS[j].at)))));
-  });
-  return low;
-}
-
-// Loose pieces: from where they were when they broke off to their rest on the ground (x, z and a
-// world rotation; the height is found so that the lowest corner touches the ground), along a
-// parabola of height `arc`, never below the ground on the way.
-const DEBRIS = [
+// Loose pieces (siege-kit debris): x, z and the world rotation of their rest on the ground.
+const DEBRIS = M.debris([
   { name: 'wheelFR', from: WHEEL_OFF, to: 0.36, at: [-1.40, 1.32], q: qmul(rotY(25 * DEG), rotZ(90 * DEG)), arc: 0.25 },
   { name: 'stone', from: 0.18, to: 0.40, at: [-0.35, 2.55], q: qmul(rotY(40 * DEG), rotZ(80 * DEG)), arc: 0.4 },
   { name: 'armTip', from: 0.18, to: 0.46, at: [1.15, 0.42], q: qmul(rotY(-15 * DEG), rotX(-90 * DEG)), arc: 0.35 },
   { name: 'board', from: 0.22, to: 0.48, at: [-0.05, 1.62], q: qmul(rotY(-8 * DEG), rotX(90 * DEG)), arc: 0.05 },
   { name: 'pole', from: 0.24, to: 0.56, at: [-0.40, -1.95], q: qmul(rotY(-10 * DEG), rotZ(90 * DEG)), arc: 0.3 },
-].map((d) => {
-  const j = J[d.name], start = worldOf(attached(d.from), j);
-  const end = [d.at[0], 0, d.at[1]];
-  end[1] = -pieceLowest(j, d.q, end);
-  return { ...d, j, start, end };
-});
+], attached);
 
-export function deathPose(u) {
-  const pose = attached(u);
-  for (const d of DEBRIS) {
-    if (u <= d.from) continue;
-    const k = clamp01((u - d.from) / (d.to - d.from)), q = slerp(d.start.q, d.q, k);
-    const p = lerp(d.start.p, d.end, k);
-    p[1] += d.arc * 4 * k * (1 - k);
-    p[1] -= Math.min(0, pieceLowest(d.j, q, p));
-    aimJoint(pose, d.name, q);
-    placeJoint(pose, d.name, p);
-  }
-  return pose;
-}
+export const deathPose = u => DEBRIS.apply(attached(u), u);
 
 const CLIPS = [
   loopClip('idle', 2.4, 12, idle),
@@ -291,7 +220,7 @@ const CLIPS = [
   onceClip('death', 2.2, 44, deathPose),
 ];
 
-export const DEBRIS_JOINTS = DEBRIS.map(d => d.name);
+export const DEBRIS_JOINTS = DEBRIS.list.map(d => d.name);
 export const RELEASE_TIME = U_HIT * DURATION;
 
 export default {
