@@ -11,7 +11,7 @@ import { SCALE, extentY as wolfExtentY } from '../tools/units/wolf.mjs';
 import { riderMinY } from '../tools/units/goblin-wolf-rider.mjs';
 import { HAND } from '../tools/units/humanoid.mjs';
 import { DEBRIS_JOINTS, lowest as catapultLowest } from '../tools/units/catapult.mjs';
-import { DEBRIS_JOINTS as TOWER_DEBRIS, lowest as towerLowest } from '../tools/units/siege-tower.mjs';
+import { DEBRIS_JOINTS as TOWER_DEBRIS, LAND_TIME, lowest as towerLowest } from '../tools/units/siege-tower.mjs';
 import { DEBRIS_JOINTS as BALLISTA_DEBRIS, lowest as ballistaLowest } from '../tools/units/orc-ballista.mjs';
 import { clashes, sampledPose } from './unit-collision.mjs';
 
@@ -66,7 +66,7 @@ for (const unit of UNITS) {
     assert.equal(gltf.accessors[skin.inverseBindMatrices].count, skin.joints.length);
     assert.deepEqual(gltf.animations.map(a => a.name), unit.clips.map(c => c.name));
     assert.deepEqual(gltf.animations.slice(0, 2).map(a => a.name), ['idle', 'run']);
-    for (const need of unit.worker ? ['chop', 'mine', 'death'] : unit.noAttack ? ['death'] : ['attack', 'death']) assert.ok(gltf.animations.some(a => a.name === need), unit.name + ': ' + need);
+    for (const need of unit.worker ? ['chop', 'mine', 'death'] : ['attack', 'death']) assert.ok(gltf.animations.some(a => a.name === need), unit.name + ': ' + need);
     for (const [i, anim] of gltf.animations.entries()) {
       if (!unit.clips[i].loop) continue;
       for (const s of anim.samplers) {
@@ -755,17 +755,18 @@ test('орочья баллиста: разрушение — ни один ка
   }
 });
 
-// Siege tower: a machine like the catapult, but it does not shoot — idle, run and death only.
+// Siege tower: a machine like the catapult; its `attack` drops the drawbridge instead of shooting.
 const towerUnit = () => UNITS.find(u => u.name === 'siege-tower');
 
-test('осадная башня: клипы idle, run, death без attack; колёса на земле, в беге колесо делает один оборот за цикл', () => {
+test('осадная башня: клипы idle, run, attack, death; колёса на земле, в беге колесо делает один оборот за цикл', () => {
   const unit = towerUnit();
-  assert.deepEqual(unit.clips.map(c => c.name), ['idle', 'run', 'death']);
-  assert.deepEqual(unit.clips.map(c => c.loop), [true, true, false]);
+  assert.deepEqual(unit.clips.map(c => c.name), ['idle', 'run', 'attack', 'death']);
+  assert.deepEqual(unit.clips.map(c => c.loop), [true, true, true, false]);
   for (const clip of unit.clips.filter(c => c.name !== 'death')) {
     for (let f = 0; f < clip.times.length; f++) {
       const low = towerLowest(poseAt(clip, f));
-      assert.ok(Math.abs(low) < 1e-6, `${clip.name} кадр ${f}: колёса ${(low * 100).toFixed(2)} см от земли`);
+      if (clip.name === 'attack') assert.ok(low > -1e-6, `attack кадр ${f}: под землёй на ${low}`);
+      else assert.ok(Math.abs(low) < 1e-6, `${clip.name} кадр ${f}: колёса ${(low * 100).toFixed(2)} см от земли`);
     }
   }
   const run = unit.clips.find(c => c.name === 'run'), wheel = run.tracks.get('wheelFL.rotation');
@@ -787,4 +788,16 @@ test('осадная башня: разрушение — ни один кадр
     assert.ok(Math.abs(towerLowest(end, tree)) < 1e-3, name + ': лежит на земле');
     assert.ok(Math.abs(p[0]) > 1.2 || Math.abs(p[2]) > 1.5, name + ': в стороне от рамы ' + p.map(v => v.toFixed(2)));
   }
+});
+
+test('осадная башня: мост опускается на 90° к моменту удара, лежит ровно, поднимается обратно; не задевает башню ни в кадрах, ни между ними', () => {
+  const unit = towerUnit(), clip = unit.clips.find(c => c.name === 'attack'), track = clip.tracks.get('bridge.rotation');
+  const angle = f => 2 * Math.atan2(track[f][0], track[f][3]) * 180 / Math.PI;
+  const landed = Math.round(LAND_TIME / clip.times.at(-1) * (clip.times.length - 1));
+  assert.ok(Math.abs(angle(0)) < 1e-6 && Math.abs(angle(track.length - 1)) < 1e-6, 'цикл начинается и кончается с поднятого моста');
+  assert.ok(Math.abs(angle(landed) - 90) < 1e-6, 'в момент удара мост лежит горизонтально');
+  assert.ok(Math.abs(angle(landed + 10) - 90) < 1e-6, 'лежит ровно');
+  for (let f = 0; f < landed; f++) assert.ok(angle(f) <= angle(f + 1) + 1e-9, `кадр ${f}: мост падает, а не поднимается`);
+  const name = p => unit.joints[p.joint].name;
+  assert.deepEqual(clashes(unit, ['idle', 'run', 'attack'], p => name(p) === 'bridge', p => name(p) !== 'bridge'), []);
 });

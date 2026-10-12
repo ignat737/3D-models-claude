@@ -1,13 +1,14 @@
 // Siege tower: a human siege engine for a strategy game — a wooden tower on four solid wheels,
-// 2.4 m long, 2.3 m wide (over the wheels), 4.4 m to the top of the drawbridge, 5.4 m to the pennant.
+// 2.6 m long, 2.3 m wide (over the wheels), 4.4 m to the top of the drawbridge, 5.4 m to the pennant.
 // Oak chassis, two planked storeys under team-coloured hide panels with a gold cross, a fighting deck
 // with a crenellated parapet (the "crown"), a rear ladder, a drawbridge raised against the front
-// (a team-coloured shield with a gold cross) and a pennant. Faces +Z (the glTF front, where the
-// drawbridge falls), +X is its left. No crew: it is a machine.
-// Clips: "idle" (the tower creaks, the pennant waves), "run" (rolls forward, the wheels make one turn
-// per cycle, the tower rocks on the bumps) — looped; "death" (a wheel breaks off, the chassis drops
-// onto that corner, the crown, the drawbridge, a hide panel and the pennant fall off, the debris lies
-// on the ground) — once. No "attack": the tower does not shoot (`noAttack: true` tells the tests).
+// (a team-coloured shield with a gold cross, planked on the back) and a pennant. Faces +Z (the glTF
+// front, where the drawbridge falls), +X is its left. No crew: it is a machine.
+// Clips: "idle" (the tower creaks, the pennant waves), "run" (rolls forward, the wheels make one
+// turn per cycle, the tower rocks on the bumps), "attack" (the drawbridge drops onto the wall, bounces,
+// lies flat, and is winched up again) — looped; "death" (a wheel breaks off, the chassis drops onto
+// that corner, the crown, the drawbridge, a hide panel and the pennant fall off, the debris lies on
+// the ground) — once.
 // Bind pose: the drawbridge raised, everything attached.
 import { DEG, loopClip, norm, onceClip, qmul, rotX, rotY, rotZ } from '../unit-glb.mjs';
 import { I, SIDES, along, beam, clamp01, machine, smooth } from './siege-kit.mjs';
@@ -16,7 +17,7 @@ const R = 0.45;                    // wheel radius = axle height
 const WX = 1.08, WZ = 0.88;        // wheel centres: x, |z|
 const POST = [0.88, 1.0];          // the corner posts: x, |z|
 const DECK = 3.1;                  // the fighting deck height
-const BRIDGE = [0, 3.17, 1.07];    // the drawbridge hinge: its bottom edge
+const BRIDGE = [0, 3.22, 1.07];    // the drawbridge hinge: its bottom edge
 
 const JOINTS = [
   { name: 'body', at: [0, R, 0], parent: -1 },
@@ -101,14 +102,17 @@ const PARTS = [
   ...SIDES.flatMap(k => [
     { c: [0.88 * k, 3.41, 0], s: [0.10, 0.50, 1.84], joint: J.crown, color: 'team' },
     ...[-0.7, 0, 0.7].map(z => ({ c: [0.88 * k, 3.86, z], s: [0.12, 0.40, 0.40], joint: J.crown, color: 'woodDark' })),
-    { c: [0.70 * k, 3.41, 1.0], s: [0.20, 0.50, 0.10], joint: J.crown, color: 'team' },
+    { c: [0.73 * k, 3.41, 1.0], s: [0.20, 0.50, 0.10], joint: J.crown, color: 'team' },
     { c: [0.42 * k, 3.86, -1.0], s: [0.50, 0.40, 0.12], joint: J.crown, color: 'woodDark' },
   ]),
   { c: [0, 3.41, -1.0], s: [1.60, 0.50, 0.10], joint: J.crown, color: 'team' },
   // Drawbridge raised against the front: a shield with a gold cross and dark side strips.
-  { c: [0, 3.77, 1.07], s: [1.20, 1.20, 0.07], joint: J.bridge, color: 'team' },
-  ...SIDES.map(k => ({ c: [0.565 * k, 3.77, 1.07], s: [0.07, 1.20, 0.10], joint: J.bridge, color: 'teamDark' })),
-  ...cross(2, 1.111, [0, 3.72], J.bridge),
+  { c: [0, 3.82, 1.07], s: [1.20, 1.20, 0.07], joint: J.bridge, color: 'team' },
+  ...SIDES.map(k => ({ c: [0.565 * k, 3.82, 1.07], s: [0.07, 1.20, 0.10], joint: J.bridge, color: 'teamDark' })),
+  ...cross(2, 1.111, [0, 3.77], J.bridge),
+  // The back of the shield is the deck when it is down: planks and two battens.
+  { c: [0, 3.82, 1.029], s: [0.96, 1.0, 0.012], joint: J.bridge, color: 'woodLight' },
+  ...[3.57, 4.07].map(y => ({ c: [0, y, 1.029], s: [0.96, 0.06, 0.014], joint: J.bridge, color: 'woodDark' })),
   // Pennant on a pole in the rear-left corner of the deck.
   { c: [0.70, 4.22, -0.85], s: [0.05, 2.16, 0.05], joint: J.pole, color: 'woodDark' },
   { c: [0.70, 5.33, -0.85], s: [0.08, 0.06, 0.08], joint: J.pole, color: 'trim' },
@@ -123,7 +127,7 @@ const ALL = JOINTS.map((_, i) => i);
 // Lowest point of the parts on the given joints (all by default) under a pose.
 export const lowest = (pose, joints = ALL) => M.lowest(pose, joints);
 
-// Idle: the tower creaks, the crown flexes a little, the drawbridge hangs on its ropes, the pennant waves.
+// Idle: the tower creaks, the crown flexes a little, the drawbridge swings a little on its hinge, the pennant waves.
 const idle = t => ground({
   'body.rotation': rotZ(0.12 * Math.sin(t) * DEG),
   'crown.rotation': qmul(rotZ(0.5 * Math.sin(t) * DEG), rotX(0.3 * Math.sin(2 * t + 1) * DEG)),
@@ -143,6 +147,30 @@ const run = (t) => {
     'flag.rotation': rotY((10 * Math.sin(4 * t) + 4 * Math.sin(6 * t + 1)) * DEG),
   }, ALL);
 };
+
+// Attack, 3.6 s in 72 keys: the drawbridge is let go (0.08), falls onto the wall (key 22, 1.1 s), bounces
+// and settles flat; the tower kicks and the crown shakes at the landing; the bridge lies for a moment,
+// then is winched up slowly (0.62–0.92) and the loop starts again from the raised bridge.
+const F = 72, DURATION = 3.6, U_HIT = 22 / F;
+function bridgeAngle(u) {
+  if (u < 0.08) return 0;
+  if (u < U_HIT) return 90 * ((u - 0.08) / (U_HIT - 0.08)) ** 2;
+  const d = u - U_HIT;
+  if (d < 0.06) return 90 - 6 * Math.sin(Math.PI * d / 0.06);
+  if (d < 0.10) return 90 - 1.5 * Math.sin(Math.PI * (d - 0.06) / 0.04);
+  if (u < 0.62) return 90;
+  return 90 * (1 - smooth((u - 0.62) / 0.30));
+}
+function attack(t) {
+  const u = t / (2 * Math.PI), d = u - U_HIT;
+  const kick = d >= 0 && d < 0.08 ? Math.sin(Math.PI * d / 0.08) : 0;
+  return ground({
+    'body.rotation': qmul(rotX(1.2 * kick * DEG), rotZ(0.5 * kick * DEG)),
+    'crown.rotation': qmul(rotZ(1.6 * kick * Math.cos(2 * Math.PI * 3 * d) * DEG), rotX(-0.8 * kick * DEG)),
+    'bridge.rotation': rotX(bridgeAngle(u) * DEG),
+    'flag.rotation': rotY((14 * Math.sin(t) + 5 * Math.sin(3 * t + 1) + 10 * kick) * DEG),
+  }, ALL, 0.03 * kick);
+}
 
 // Death. The front-right wheel breaks off and the chassis tips about the diagonal between the
 // rear-right and front-left wheels until its bare corner touches the ground.
@@ -183,16 +211,18 @@ export const deathPose = u => DEBRIS.apply(attached(u), u);
 const CLIPS = [
   loopClip('idle', 2.4, 24, idle),
   loopClip('run', 2.0, 40, run),
+  loopClip('attack', DURATION, F, attack),
   onceClip('death', 2.6, 52, deathPose),
 ];
 
 export const DEBRIS_JOINTS = DEBRIS.list.map(d => d.name);
+export const LAND_TIME = U_HIT * DURATION;
 
 export default {
   name: 'siege-tower', joints: JOINTS, palette: PALETTE, parts: PARTS, clips: CLIPS,
-  noAttack: true, maxTriangles: 1200,
-  preview: 'idle@0.6,run@0.4,death@2.6',
+  maxTriangles: 1200,
+  preview: 'idle@0.6,attack@0.9,attack@1.6,run@0.4,death@2.6',
   previewGap: 150,
   previewZoom: 1.5,
-  previewHeading: 130,
+  previewHeading: 100,
 };
