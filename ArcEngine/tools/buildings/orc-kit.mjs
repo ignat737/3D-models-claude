@@ -125,4 +125,20 @@ export function spin(parts, psi) {
   });
 }
 
+// Walls of a hexagonal log building: `rows` courses of crooked logs round a hexagon with apothem `A`
+// (the outer face of the wall). Logs reach past both corners on every other side and course and stop
+// short on the rest, so the ends interlock. Returns the parts, the top of the walls and the apothem of
+// the core. Face k = 0 looks to +Z, the rest follow to the left (-60 degrees each).
+export function hexLogs({ A, y0, rows, r, seed = 0 }) {
+  const flat = r * Math.sqrt(3) / 2, pitch = 1.8 * r, dist = A - flat, side = dist * 2 / Math.sqrt(3);
+  const h = 2 * r + (rows - 1) * pitch, rc = dist * 2 / Math.sqrt(3);
+  const core = { c: [0, y0 + h / 2, 0], h, r: [rc, rc], n: 6, color: 'char' };
+  const logs = Array.from({ length: 6 }, (_, j) => spin(Array.from({ length: rows }, (_, k) => {
+    const over = (k + j) % 2 === 0, e = 0.25 * (0.6 + 0.8 * rnd(k + 3 * j, seed));
+    const len = over ? side + 2 * e : side - 2.3 * r;
+    return { c: [0, y0 + r + k * pitch, dist], h: len, r: [r, r * 0.9], n: 6, q: rotZ(90 * DEG), color: logColor(k + j) };
+  }), -60 * j * DEG)).flat();
+  return { parts: [core, ...logs], top: y0 + h, dist };
+}
+
 export { DEG, qmul, qrot, rotX, rotY, rotZ };

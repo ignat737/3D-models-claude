@@ -367,7 +367,7 @@ test('орочьи здания: в папке зданий, палитра ор
   }
 });
 
-test('орочьи здания: хижина, барак и кузница стоят на человеческом плане, барак длиннее и выше хижины, дверь проходима', () => {
+test('орочьи здания: хижина и кузница стоят на человеческом плане, барак больше и выше хижины, дверь проходима', () => {
   const by = n => BUILDINGS.find(b => b.name === n), size = n => { const { min, max } = bounds(by(n)); return max.map((v, k) => v - min[k]); };
   const hut = by('orc-hut'), barracks = by('orc-barracks');
   assert.ok(size('orc-hut')[0] >= 4.2 && size('orc-hut')[2] >= 3.2, 'хижина 4,2 x 3,2 м по стенам');
@@ -398,6 +398,26 @@ test('орочий барак: шестиугольный план — гекс-
   assert.ok(windows.every(p => Math.hypot(p.c[0], p.c[2]) > 4.5), 'окна в стенах, не в глубине');
   assert.ok(!windows.some(p => Math.abs(p.c[0]) < 3 && p.c[2] > 4), 'на фасаде с дверью окон нет');
   assert.ok(b.parts.filter(p => p.color === 'team' && p.s && p.s[0] === 0.26).length >= 20, 'ставни цвета команды');
+});
+
+test('орочья хижина: шестиугольный план — гекс-цоколь, стены из брёвен по трём осям, гекс-крыша, окна на двух гранях, дверь на передней', () => {
+  const b = BUILDINGS.find(p => p.name === 'orc-hut');
+  assert.ok(b.parts.some(p => p.n === 6 && p.color === 'stoneDark' && !p.q && p.r[0] > 2.7 && p.h < 0.3), 'шестигранный цоколь');
+  assert.ok(b.parts.some(p => p.n === 6 && p.color === 'hide' && p.r[0] > 2.7 && p.r[1] < 1), 'шестигранная крыша из шкур');
+  const logs = b.parts.filter(p => p.n === 6 && p.q && p.h > 1.5 && ['wood', 'woodDark', 'woodLight'].includes(p.color));
+  const dirs = logs.map(p => {
+    const [x, , z] = qrot(p.q, [0, 1, 0]);
+    return Math.round(((Math.atan2(z, x) * 180 / Math.PI) % 180 + 180) % 180) % 180;
+  });
+  assert.deepEqual([...new Set(dirs)].sort((a, c) => a - c), [0, 60, 120], 'стены по трём осям шестиугольника');
+  assert.equal(new Set(logs.map(p => Math.floor((Math.atan2(p.c[2], p.c[0]) * 180 / Math.PI + 360) / 60) % 6)).size, 6, 'брёвна на всех шести сторонах');
+  const { min, max } = bounds(b);
+  assert.ok(max[0] - min[0] >= 4.8 && max[1] > 4.5, 'от 4,8 м между углами, выше 4,5 м с дымником');
+  const windows = b.parts.filter(p => p.s && p.color === 'slit' && p.s[2] === 0.04 && p.s[0] === 0.46);
+  assert.equal(windows.length, 2, 'окна на двух гранях');
+  assert.ok(!windows.some(p => Math.abs(p.c[0]) < 1.5 && p.c[2] > 1.5), 'на фасаде с дверью окон нет');
+  const gate = b.parts.find(p => p.s && p.color === 'slit' && p.s[1] > 1.6 && p.s[1] < 2.6 && p.s[0] >= 0.9 && p.s[2] < 0.1);
+  assert.ok(gate && Math.abs(gate.c[0]) < 0.1 && gate.c[2] > 1.5, 'дверь в рост орка по центру передней грани');
 });
 
 test('орочья кузница: горн с огнём, наковальня, труба с огнём выше конька, череп на трубе', () => {

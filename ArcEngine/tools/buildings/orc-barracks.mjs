@@ -8,26 +8,18 @@
 // Static: one mesh, one palette material, no skeleton, no clips.
 // Model space: meters, feet at y = 0, origin at the centre of the hexagon, the door faces +Z. Every face
 // is built once on the +Z side (u along the wall, y up, z = A + depth) and turned by `spin` to the others.
-import { DEG, PALETTE, axe, banner, beam, box, brazier, door, drum, faceSpike, horn, logColor, pennant, rnd, rock, rotZ, skull, skullStake, spike, spin } from './orc-kit.mjs';
+import { DEG, PALETTE, axe, banner, beam, box, brazier, door, drum, faceSpike, hexLogs, horn, pennant, rock, skull, skullStake, spike, spin } from './orc-kit.mjs';
 
 const A = 4.6;                                        // apothem: centre to the outer face of a wall
 const R = A * 2 / Math.sqrt(3);                       // circumradius: centre to a corner
 const PLINTH = 0.35, ROWS = 7, LOG_R = 0.34;
-const FLAT = LOG_R * Math.sqrt(3) / 2, PITCH_Y = 1.8 * LOG_R;
-const TOP = PLINTH + 2 * LOG_R + (ROWS - 1) * PITCH_Y;
 const faceAngle = k => -60 * k * DEG;                 // k = 0 is the front, then round to the left
 
 // Round parts are six-sided frusta about Y with a corner on +X, so a flat looks to +Z, like the front wall.
 const hex = (y, h, a0, a1, color) => ({ c: [0, y, 0], h, r: [a0 * 2 / Math.sqrt(3), a1 * 2 / Math.sqrt(3)], n: 6, color });
 
-// Log courses of all six walls. On a side the logs lie along its tangent; a log reaches past both
-// corners on every other side and course and stops short on the rest, so the ends interlock.
-const dist = A - FLAT, SIDE = dist * 2 / Math.sqrt(3);
-const logs = Array.from({ length: 6 }, (_, j) => spin(Array.from({ length: ROWS }, (_, k) => {
-  const over = (k + j) % 2 === 0, e = 0.25 * (0.6 + 0.8 * rnd(k + 3 * j, 8));
-  const len = over ? SIDE + 2 * e : SIDE - 2.3 * LOG_R;
-  return { c: [0, PLINTH + LOG_R + k * PITCH_Y, dist], h: len, r: [LOG_R, LOG_R * 0.9], n: 6, q: rotZ(90 * DEG), color: logColor(k + j) };
-}), faceAngle(j))).flat();
+const walls = hexLogs({ A, y0: PLINTH, rows: ROWS, r: LOG_R, seed: 8 });
+const TOP = walls.top;
 
 // A window on the +Z face: dark frame, the opening, team shutters on both sides.
 const windowAt = (u, y, w, h, shutters) => [
@@ -101,8 +93,7 @@ const front = [
 
 const PARTS = [
   hex(PLINTH / 2, PLINTH, A + 0.45, A + 0.45, 'stoneDark'),
-  hex((PLINTH + TOP) / 2, TOP - PLINTH, dist, dist, 'char'),
-  ...logs,
+  ...walls.parts,
   hex(TOP + 0.03, 0.14, A + 0.1, A + 0.1, 'woodDark'),
   ...roof,
   ...lantern,
