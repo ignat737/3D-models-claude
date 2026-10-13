@@ -11,6 +11,7 @@ import { SCALE, extentY as wolfExtentY } from '../tools/units/wolf.mjs';
 import { riderMinY } from '../tools/units/goblin-wolf-rider.mjs';
 import { HAND } from '../tools/units/humanoid.mjs';
 import { DEBRIS_JOINTS, lowest as catapultLowest } from '../tools/units/catapult.mjs';
+import { DEBRIS_JOINTS as TOWER_DEBRIS, LAND_TIME, lowest as towerLowest } from '../tools/units/siege-tower.mjs';
 import { DEBRIS_JOINTS as BALLISTA_DEBRIS, lowest as ballistaLowest } from '../tools/units/orc-ballista.mjs';
 import { clashes, sampledPose } from './unit-collision.mjs';
 
@@ -752,4 +753,51 @@ test('орочья баллиста: разрушение — ни один ка
     assert.ok(Math.abs(ballistaLowest(end, tree[name] || [J[name]])) < 1e-3, name + ': лежит на земле');
     assert.ok(Math.abs(p[0]) > 0.8 || Math.abs(p[2]) > 1.4, name + ': в стороне от рамы ' + p.map(v => v.toFixed(2)));
   }
+});
+
+// Siege tower: a machine like the catapult; its `attack` drops the drawbridge instead of shooting.
+const towerUnit = () => UNITS.find(u => u.name === 'siege-tower');
+
+test('осадная башня: клипы idle, run, attack, death; колёса на земле, в беге колесо делает один оборот за цикл', () => {
+  const unit = towerUnit();
+  assert.deepEqual(unit.clips.map(c => c.name), ['idle', 'run', 'attack', 'death']);
+  assert.deepEqual(unit.clips.map(c => c.loop), [true, true, true, false]);
+  for (const clip of unit.clips.filter(c => c.name !== 'death')) {
+    for (let f = 0; f < clip.times.length; f++) {
+      const low = towerLowest(poseAt(clip, f));
+      if (clip.name === 'attack') assert.ok(low > -1e-6, `attack кадр ${f}: под землёй на ${low}`);
+      else assert.ok(Math.abs(low) < 1e-6, `${clip.name} кадр ${f}: колёса ${(low * 100).toFixed(2)} см от земли`);
+    }
+  }
+  const run = unit.clips.find(c => c.name === 'run'), wheel = run.tracks.get('wheelFL.rotation');
+  assert.ok(Math.abs(Math.abs(wheel[(wheel.length - 1) / 2][0]) - 1) < 1e-9, 'полцикла — пол-оборота');
+  for (const w of ['wheelFR', 'wheelHL', 'wheelHR']) assert.deepEqual(run.tracks.get(w + '.rotation'), wheel, w);
+});
+
+test('осадная башня: разрушение — ни один кадр не под землёй, рама легла углом на землю, обломки лежат на земле в стороне', () => {
+  const unit = towerUnit(), { J, worldOf } = rig(unit.joints), all = unit.joints.map((_, i) => i);
+  const death = unit.clips.find(c => c.name === 'death');
+  for (let f = 0; f < death.times.length; f++) assert.ok(towerLowest(poseAt(death, f), all) > -1e-3, `death кадр ${f}: ушла под землю`);
+  const end = poseAt(death, death.times.length - 1);
+  assert.ok(Math.abs(towerLowest(end, [J.body])) < 1e-3, 'угол рамы без колеса на земле');
+  assert.ok(qrot(worldOf(end, J.body).q, [0, 1, 0])[1] < Math.cos(10 * Math.PI / 180), 'башня накренилась');
+  assert.deepEqual(TOWER_DEBRIS, ['wheelFR', 'bridge', 'crown', 'hide', 'pole']);
+  for (const name of TOWER_DEBRIS) {
+    const p = worldOf(end, J[name]).p;
+    const tree = name === 'pole' ? [J.pole, J.flag] : [J[name]];
+    assert.ok(Math.abs(towerLowest(end, tree)) < 1e-3, name + ': лежит на земле');
+    assert.ok(Math.abs(p[0]) > 1.2 || Math.abs(p[2]) > 1.5, name + ': в стороне от рамы ' + p.map(v => v.toFixed(2)));
+  }
+});
+
+test('осадная башня: мост опускается на 90° к моменту удара, лежит ровно, поднимается обратно; не задевает башню ни в кадрах, ни между ними', () => {
+  const unit = towerUnit(), clip = unit.clips.find(c => c.name === 'attack'), track = clip.tracks.get('bridge.rotation');
+  const angle = f => 2 * Math.atan2(track[f][0], track[f][3]) * 180 / Math.PI;
+  const landed = Math.round(LAND_TIME / clip.times.at(-1) * (clip.times.length - 1));
+  assert.ok(Math.abs(angle(0)) < 1e-6 && Math.abs(angle(track.length - 1)) < 1e-6, 'цикл начинается и кончается с поднятого моста');
+  assert.ok(Math.abs(angle(landed) - 90) < 1e-6, 'в момент удара мост лежит горизонтально');
+  assert.ok(Math.abs(angle(landed + 10) - 90) < 1e-6, 'лежит ровно');
+  for (let f = 0; f < landed; f++) assert.ok(angle(f) <= angle(f + 1) + 1e-9, `кадр ${f}: мост падает, а не поднимается`);
+  const name = p => unit.joints[p.joint].name;
+  assert.deepEqual(clashes(unit, ['idle', 'run', 'attack'], p => name(p) === 'bridge', p => name(p) !== 'bridge'), []);
 });

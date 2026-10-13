@@ -146,7 +146,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === url.fileURLToPath(impor
   });
   try {
     const rel = path.relative(ROOT, file).split(path.sep).join('/');
-    const heading = arg('heading') === '' ? null : Number(arg('heading'));
+    const heading = arg('heading') === '' ? (unit.previewHeading ?? null) : Number(arg('heading'));
     const info = await page.eval(placeScript(rel, poses, mode, heading, Number(arg('gap')) || unit.previewGap || 28, riderFile, withFile, unit.withAt || [-3.0, 2.2], unit.previewZoom || 1));
     if (info.clamped) console.log('  камера поднята над землёй (Debug3D.hold clamped): кадр может быть не тем');
     await page.shot(out);
