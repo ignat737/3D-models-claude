@@ -161,7 +161,7 @@ node tools/unit-preview.mjs peasant-house --with=spearman --pose=20   # a unit b
 - Model space: meters, feet at y = 0 and origin at the centre of the footprint, the front (door) faces +Z.
 - A gable triangle is a 3-sided frustum turned by `rotZ(90°)` (apex up): height 1.5 r, base 1.732 r times `sq`.
   A sloped slab is a box with `q: rotX(±pitch)` about its own centre; a beam in the plane of a gable is a box turned by `rotX(atan2(-dy, dz))`.
-- Keep decals >= 0.006 m above their surface (z-fighting) and the whole building within `MAX_TRIANGLES` = 2500 triangles (`tools/make-buildings.mjs`, checked by `tests/buildings.test.mjs`; units keep 1000). The peasant house is 804, the two-floor barracks 1996, the smithy 1192, the stable 1716, the sawmill 1972, the castle 2416 and the town hall 2420; siege workshop 3436, orc siege workshop 3780, orc hut 2500, barracks 3684, smithy 1540, sawmill 1828, fortress 3824, troll lair 1720. A building may carry its own `maxTriangles` (orc barracks 4000, orc fortress 4000, both siege workshops 4000); the test uses it instead of `MAX_TRIANGLES`.
+- Keep decals >= 0.006 m above their surface (z-fighting) and the whole building within `MAX_TRIANGLES` = 2500 triangles (`tools/make-buildings.mjs`, checked by `tests/buildings.test.mjs`; units keep 1000). The peasant house is 804, the two-floor barracks 1996, the smithy 1192, the stable 1716, the sawmill 1972, the castle 3984 and the town hall 2420; siege workshop 3436, orc siege workshop 3780, orc hut 2500, barracks 3684, smithy 1540, sawmill 1828, fortress 3824, troll lair 1720. A building may carry its own `maxTriangles` (castle 4000, orc barracks 4000, orc fortress 4000, both siege workshops 4000); the test uses it instead of `MAX_TRIANGLES`.
 
 ## Clips every unit has
 
