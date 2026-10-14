@@ -1,8 +1,9 @@
 // siege-workshop.mjs — the human siege workshop, where catapults and siege towers are built: a
 // plaster-and-timber hall on a stone base with a red-tile roof and a wide gate, the leaves
-// swung open, a hoist jib over the gate and team banners. Inside: a workbench, a saw and timber;
-// in the yard: a catapult under construction (left), a stack of stone shot, barrels, a big spoked
-// wheel and a siege-tower scaffold with a ladder (right), a flag on the ridge.
+// swung open, a hoist jib over the gate and team banners. Inside: a workbench, a saw and timber.
+// In front of the gate a 12 x 7.4 m yard behind a post-and-rail fence with a 3.6 m gap (open
+// leaves, team-capped posts): a catapult under construction (left), a stack of stone shot, barrels,
+// a big spoked wheel and a siege-tower scaffold with a ladder (right); a flag on the ridge.
 // Static: one mesh, one palette material, no skeleton, no clips.
 // Model space: meters, feet at y = 0, origin at the centre of the hall, the gate faces +Z, the
 // ridge runs along X.
@@ -136,7 +137,7 @@ const BANNERS = [1, -1].flatMap(s => [
 
 // A catapult under construction in the yard at (X, Z): rails on four wheels, two uprights, a
 // throwing arm propped on a beam, a bucket and a coil of rope.
-const CX = -HX - 2.3, CZ = 0.4;
+const CX = -3.4, CZ = HZ + 3.3;
 const catapult = [
   ...[1, -1].map(s => box([CX + s * 0.6, 0.9, CZ], [0.2, 0.2, 3.0], 'wood')),
   ...[-1.1, 0.3].map(dz => box([CX, 0.9, CZ + dz], [1.4, 0.2, 0.2], 'woodLight')),
@@ -159,9 +160,9 @@ const catapult = [
 // A pyramid of stone shot beside it.
 const shot = (x, y, z) => ({ c: [x, y + 0.2, z], h: 0.4, r: [0.22, 0.2], n: 6, color: 'stoneLight' });
 const SHOTS = [
-  ...[[-0.25, 0], [0.25, 0], [0, 0.4]].map(([dx, dz]) => shot(CX - 2.0 + dx, 0, CZ + 0.2 + dz - 0.6)),
-  shot(CX - 2.0, 0.4, CZ - 0.2),
-  ...[[-0.25, 0], [0.25, 0]].map(([dx]) => shot(CX - 2.0 + dx, 0, CZ + 0.4)),
+  ...[[-0.25, 0], [0.25, 0], [0, 0.4]].map(([dx, dz]) => shot(CX - 1.8 + dx, 0, CZ + 0.2 + dz - 0.6)),
+  shot(CX - 1.8, 0.4, CZ - 0.2),
+  ...[[-0.25, 0], [0.25, 0]].map(([dx]) => shot(CX - 1.8 + dx, 0, CZ + 0.4)),
 ];
 
 // A big spoked cart wheel leaning on the front wall beside the gate.
@@ -175,7 +176,7 @@ const wheel = (() => {
 })();
 
 // The siege-tower scaffold on the +X side: four posts, three levels of rails, braces, a ladder.
-const SX = HX + 2.0, SZ = 0.6, SW = 1.0, SD = 1.3, SH = 4.6;
+const SX = 3.4, SZ = HZ + 3.5, SW = 1.0, SD = 1.3, SH = 4.6;
 const scaffold = [
   ...[1, -1].flatMap(sx => [1, -1].map(sz => box([SX + sx * SW, SH / 2, SZ + sz * SD], [0.2, SH, 0.2], 'wood'))),
   ...[1.1, 2.4, 3.7].flatMap(y => [
@@ -193,15 +194,47 @@ const scaffold = [
   box([SX, 3.77, SZ], [2 * SW - 0.2, 0.06, 2 * SD - 0.2], 'wood'),
 ];
 
+// The yard fence: posts every <= 1.6 m and two rails; corner and gate posts carry team caps.
+const YW = 6, ZF = HZ + 7.4, GAP = 1.8;
+const yardFence = (() => {
+  const posts = new Map(), rails = [];
+  const run = ([x0, z0], [x1, z1]) => {
+    const len = Math.hypot(x1 - x0, z1 - z0), n = Math.ceil(len / 1.6);
+    for (let i = 0; i <= n; i++) {
+      const x = x0 + (x1 - x0) * i / n, z = z0 + (z1 - z0) * i / n;
+      posts.set(x.toFixed(2) + ',' + z.toFixed(2), [x, z]);
+    }
+    const c = [(x0 + x1) / 2, 0, (z0 + z1) / 2], alongX = Math.abs(x1 - x0) > 0.01;
+    for (const y of [0.45, 0.85]) rails.push(box([c[0], y, c[2]], alongX ? [len, 0.09, 0.07] : [0.07, 0.09, len], 'wood'));
+  };
+  run([-YW, ZF], [-GAP, ZF]); run([GAP, ZF], [YW, ZF]);
+  run([-YW, HZ], [-YW, ZF]); run([YW, HZ], [YW, ZF]);
+  run([-YW, HZ], [-HX - 0.15, HZ]); run([HX + 0.15, HZ], [YW, HZ]);
+  const special = ([x, z]) => Math.abs(Math.abs(x) - YW) < 0.01 || Math.abs(Math.abs(x) - GAP) < 0.01;
+  const parts = [...posts.values()].flatMap(p => {
+    const [x, z] = p, tall = Math.abs(Math.abs(x) - GAP) < 0.01 && z === ZF;
+    return [
+      box([x, tall ? 0.85 : 0.55, z], [0.16, tall ? 1.7 : 1.1, 0.16], 'timber'),
+      ...(special(p) ? [box([x, tall ? 1.78 : 1.18, z], [0.22, 0.12, 0.22], 'team')] : []),
+    ];
+  });
+  // The gate leaves stand open, swung inward along the yard side.
+  const leaves = [1, -1].flatMap(s => [
+    ...[0.3, 0.6, 0.9].map(y => box([s * GAP, y, ZF - 0.85], [0.08, 0.12, 1.5], 'woodLight')),
+    box([s * GAP, 0.6, ZF - 1.55], [0.1, 0.9, 0.1], 'wood'),
+  ]);
+  return [...parts, ...rails, ...leaves];
+})();
+
 const PARTS = [
   ...WALLS, ...FRAME, ...gate, ...windowAt(1, -1.0), ...windowAt(-1, -1.0), ...windowAt(1, 1.0), ...windowAt(-1, 1.0),
   ...roof.parts, gable(1), gable(-1),
-  ...INSIDE, ...JIB, ...BANNERS, ...catapult, ...SHOTS, ...wheel, ...scaffold,
+  ...yardFence, ...INSIDE, ...JIB, ...BANNERS, ...catapult, ...SHOTS, ...wheel, ...scaffold,
   ...barrel(2.4, HZ + 0.7), ...barrel(2.9, HZ + 0.9, { r: 0.26, h: 0.62 }),
   ...flag(2.6, roof.ridge, 0, { pole: 1.8 }),
 ];
 
 export default {
-  name: 'siege-workshop', static: true, joints: [], palette: PALETTE, parts: PARTS, clips: [], maxTriangles: 3000,
-  preview: '25,90,155', previewGap: 520, previewZoom: 1.8, withAt: [0, 4.6],
+  name: 'siege-workshop', static: true, joints: [], palette: PALETTE, parts: PARTS, clips: [], maxTriangles: 4000,
+  preview: '25,90,155', previewGap: 640, previewZoom: 0.95, withAt: [1.0, 6.0],
 };
