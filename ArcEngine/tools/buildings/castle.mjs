@@ -1,7 +1,7 @@
 // castle.mjs — a castle: a curtain wall with battlements and buttresses, four round corner towers
 // with open crenellated fighting platforms (no roofs; braziers and team flags inside), a gatehouse
 // with a half-raised portcullis, torches, a lowered drawbridge on chains and banners, a tall keep
-// with four turrets, windows, a balcony and a flag, and a cobbled courtyard with a flagstone path,
+// with a fully crenellated roof platform, windows, a balcony and a flag, and a cobbled courtyard with a flagstone path,
 // a well, a training dummy, a weapon rack, barrels and crates.
 // Static: one mesh, one palette material, no skeleton, no clips.
 // Model space: meters, feet at y = 0, origin at the centre of the walls, the gate and the
@@ -66,13 +66,6 @@ const tower = (x, z) => {
   ];
 };
 
-// A turret on a keep corner.
-const turret = (x, z) => [
-  { c: [x, KEEP.h + 0.8, z], h: 1.6, r: [0.85, 0.8], n: 8, color: 'stone' },
-  { c: [x, KEEP.h + 1.6 + 0.9, z], h: 1.8, r: [1.05, 0.05], n: 8, color: 'team' },
-  { c: [x, KEEP.h + 3.0, z], h: 0.3, r: [0.12, 0.12], n: 6, color: 'gold' },
-];
-
 const KX = KEEP.w / 2, KZF = KEEP.z + KEEP.w / 2;
 const WELL = [-3.2, 1.8];
 
@@ -134,13 +127,12 @@ const PARTS = [
     { c: [s * (GATE_W + 0.5), 3.3, GATE_Z1 + 0.14], h: 0.4, r: [0.14, 0.03], n: 6, color: 'fire' },
   ]),
 
-  // The keep: a tall block, cornice, merlons, four turrets, a door, slits, banners, a flag.
+  // The keep: a tall block, cornice, merlons all round the roof platform, a door, slits, banners, a flag.
   box([KEEP.x, KEEP.h / 2, KEEP.z], [KEEP.w, KEEP.h, KEEP.w], 'stone'),
   box([KEEP.x, 0.3, KEEP.z], [KEEP.w + 0.4, 0.6, KEEP.w + 0.4], 'stoneDark'),
   box([KEEP.x, KEEP.h + 0.1, KEEP.z], [KEEP.w + 0.5, 0.3, KEEP.w + 0.5], 'stoneDark'),
-  ...merlons('x', KEEP.z + KX + 0.12, -KX + 1.1, KX - 1.1, 2, KEEP.h + 0.65),
-  ...[1, -1].flatMap(s => merlons('z', s * (KX + 0.12), KEEP.z - KX + 1.1, KEEP.z + KX - 1.1, 1, KEEP.h + 0.65)),
-  ...[1, -1].flatMap(sx => [1, -1].flatMap(sz => turret(sx * KX, KEEP.z + sz * KX))),
+  ...[1, -1].flatMap(s => merlons('x', KEEP.z + s * (KX + 0.07), -3.0, 3.0, 5, KEEP.h + 0.65)),
+  ...[1, -1].flatMap(s => merlons('z', s * (KX + 0.07), KEEP.z - 1.75, KEEP.z + 1.75, 3, KEEP.h + 0.65)),
   box([0, 8.0, KZF + 0.02], [0.18, 0.9, 0.06], 'slit'),
   ...[-1.6, 1.6].map(x => box([x, 6.0, KZF + 0.02], [0.18, 0.9, 0.06], 'slit')),
   ...[-1.6, 1.6].map(x => box([x, 3.4, KZF + 0.02], [0.18, 0.9, 0.06], 'slit')),
