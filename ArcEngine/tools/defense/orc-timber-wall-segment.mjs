@@ -1,9 +1,9 @@
 // orc-timber-wall-segment.mjs — a 10 m segment of an orc log wall: a rough stone footing with bones
 // in it, eight courses of dark logs round a plank core, two rows of iron-black spikes sticking out of
 // the face, patches of hide nailed on, a plank wall walk behind a parapet with six pointed merlons and
-// skulls between them, arrow slits and a tattered team banner. The orc twin of timber-wall-segment:
+// skulls between them and a tattered team banner. The orc twin of timber-wall-segment:
 // the same 10 m, thickness, footing and 4.6 m wall walk, so it replaces it 1:1. Static: one mesh.
-import { PALETTE, banner, beam, box, masonry, slit, spikeRows, wallTop } from './orc-common.mjs';
+import { PALETTE, banner, beam, box, masonry, spikeRows, wallTop } from './orc-common.mjs';
 import { PLINTH, ROWS, THICK, WALK, wallLogs } from './timber-common.mjs';
 
 const H = THICK / 2;
@@ -23,7 +23,6 @@ const PARTS = [
     box([x, 0.07, -H - 1.4], [0.34, 0.14, 0.36], 'earth'),
   ]),
   ...wallTop({ walk: WALK, thick: THICK, deck: 'woodLight', parapet: 'wood', merlon: 'woodDark' }),
-  ...[-2.5, 2.5].flatMap(u => slit('z', 1, H, u, 2.75)),
   ...banner('z', 1, H, 0, 4.2),
 ];
 

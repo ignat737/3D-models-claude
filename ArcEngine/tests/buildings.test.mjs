@@ -15,6 +15,27 @@ function parseGlb(buf) {
   return { gltf: JSON.parse(buf.toString('utf8', 20, 20 + jsonLength)), bin: buf.subarray(20 + jsonLength + 8) };
 }
 
+// Vertical rays across the standing area must reach the deck with nothing overhead.
+function assertOpenDeck(building, floor) {
+  const mesh = buildMesh(building);
+  for (const x of [-0.7, 0, 0.7]) for (const z of [-0.9, 0.3, 0.9]) {
+    let hasFloor = false;
+    for (let i = 0; i < mesh.indices.length; i += 3) {
+      const [a, b, c] = [0, 1, 2].map(k => mesh.positions.slice(mesh.indices[i + k] * 3, mesh.indices[i + k] * 3 + 3));
+      const det = (b[2] - c[2]) * (a[0] - c[0]) + (c[0] - b[0]) * (a[2] - c[2]);
+      if (Math.abs(det) < 1e-9) continue;
+      const u = ((b[2] - c[2]) * (x - c[0]) + (c[0] - b[0]) * (z - c[2])) / det;
+      const v = ((c[2] - a[2]) * (x - c[0]) + (a[0] - c[0]) * (z - c[2])) / det;
+      const w = 1 - u - v;
+      if (Math.min(u, v, w) < -1e-6) continue;
+      const y = u * a[1] + v * b[1] + w * c[1];
+      assert.ok(y <= floor + 0.01, `${building.name}: overhead surface at ${x}, ${z}, y=${y}`);
+      if (Math.abs(y - floor) < 1e-5) hasFloor = true;
+    }
+    assert.ok(hasFloor, `${building.name}: deck exists at ${x}, ${z}`);
+  }
+}
+
 test('здания: имена уникальны, статичные, без клипов', () => {
   assert.equal(new Set(BUILDINGS.map(b => b.name)).size, BUILDINGS.length);
   for (const b of BUILDINGS) assert.ok(b.static && b.clips.length === 0 && b.joints.length === 0, b.name);
@@ -158,16 +179,14 @@ test('частокол: сегмент ровно 10 м вдоль X, стыку
 test('башня частокола: 3 x 3 м по оси стены, площадка для стрелков на 3,6 м, парапет по грудь, лестница, цвет команды', () => {
   const tower = BUILDINGS.find(b => b.name === 'palisade-tower');
   assert.equal(tower.folder, '3D-models-defense');
-  const { gltf } = parseGlb(buildGlb(tower));
-  const { min, max } = gltf.accessors[gltf.meshes[0].primitives[0].attributes.POSITION];
-  assert.ok(Math.abs(min[0] + max[0]) < 0.05 && Math.abs(min[2] + max[2]) < 0.7, 'центр на оси стены');
   const planks = tower.parts.filter(p => p.s && p.s[0] > 3.4 && p.c[1] > 3 && p.c[1] < 3.6);
   assert.ok(planks.length >= 5 && planks.reduce((a, p) => a + p.s[2], 0) > 3.4, 'настил шире основания (свес)');
+  assert.ok([0, 2].every(axis => Math.abs(Math.min(...planks.map(p => p.c[axis] - p.s[axis] / 2)) + Math.max(...planks.map(p => p.c[axis] + p.s[axis] / 2))) < 1e-6), 'площадка центрирована на оси стены');
   const deck = planks[0];
   const floor = deck.c[1] + deck.s[1] / 2;
   const logs = tower.parts.filter(p => p.h && p.c[1] > floor && p.c[1] < floor + 1.4 && p.r[0] === p.r[1]);
   assert.ok(logs.length >= 15 && logs.every(p => p.c[1] - p.h / 2 >= floor - 1e-6), 'парапет стоит на площадке');
-  assert.ok(max[1] > floor + 2, 'над площадкой крыша выше человека');
+  assertOpenDeck(tower, floor);
   assert.ok(tower.parts.some(p => p.color === 'team') && tower.parts.some(p => p.color === 'teamDark'));
 });
 
@@ -331,6 +350,7 @@ test('орочьи укрепления: три яруса по четыре м�
     const foot = by(names[1]).parts.filter(p => p.s && !p.q && p.c[1] - p.s[1] / 2 < 1e-6);
     assert.ok(Math.abs(Math.min(...foot.map(p => p.c[0] - p.s[0] / 2)) + Math.max(...foot.map(p => p.c[0] + p.s[0] / 2))) < 0.05, names[1] + ': башня на оси стены');
     assert.ok(by(names[1]).parts.some(p => p.color === 'fire'), names[1] + ': жаровня с огнём');
+    if (tier === 'palisade') assertOpenDeck(by(names[1]), 3.8);
     assert.ok(bounds(by(wall)).max[1] > bounds(by(humanWall)).max[1], wall + ' выше человеческой');
     assert.ok(bounds(by(names[1])).max[1] > bounds(by(`${tier === 'palisade' ? 'palisade' : tier}-tower`)).max[1] - 1.5, names[1] + ': не ниже человеческой башни');
 

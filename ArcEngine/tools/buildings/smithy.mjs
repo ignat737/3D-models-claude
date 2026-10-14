@@ -41,6 +41,7 @@ const gable = side => gableEnd({ x: HX + 0.05, side, baseY: TOP + 0.1, halfZ: HZ
 
 const anvil = [1.9, HZ + 1.0];
 const hearth = [2.15, -0.25];
+const bellows = [hearth[0] - 0.85, -0.15];        // base flush with the hearth's left face
 const door = { x: -1.9, w: 0.9, h: 1.9 };
 const win = { x: -0.55, y: 1.5 };
 
@@ -74,10 +75,10 @@ const PARTS = [
   box([hearth[0] + 0.1, 1.9, hearth[1]], [0.8, 0.9, 1.1], 'stoneDark'),
   box([hearth[0] - 0.2, 1.4, hearth[1]], [0.3, 0.1, 0.9], 'stoneDark'),
   // Bellows with a nozzle and a handle.
-  box([1.0, 0.55, -0.15], [0.7, 0.26, 0.5], 'leather', { q: rotZ(-12 * DEG), pivot: [1.0, 0.55, -0.15] }),
-  box([1.0, 0.4, -0.15], [0.6, 0.1, 0.4], 'timberLight'),
-  box([1.45, 0.62, -0.15], [0.3, 0.07, 0.07], 'iron'),
-  box([0.55, 0.85, -0.15], [0.3, 0.07, 0.07], 'timber'),
+  box([bellows[0], 0.55, bellows[1]], [0.7, 0.26, 0.5], 'leather', { q: rotZ(-12 * DEG), pivot: [bellows[0], 0.55, bellows[1]] }),
+  box([bellows[0], 0.4, bellows[1]], [0.6, 0.1, 0.4], 'timberLight'),
+  box([bellows[0] + 0.45, 0.62, bellows[1]], [0.3, 0.07, 0.07], 'iron'),
+  box([bellows[0] - 0.45, 0.85, bellows[1]], [0.3, 0.07, 0.07], 'timber'),
 
   // Anvil on a stump, a hammer across it.
   { c: [anvil[0], 0.3, anvil[1]], h: 0.6, r: [0.3, 0.27], n: 6, color: 'timberLight' },
@@ -117,6 +118,8 @@ const PARTS = [
   box([3.45, 0.55, 1.4], [0.7, 0.07, 0.12], 'timber'),
   ...[1, -1].map(s => box([3.45, 0.31, 1.4 + s * 0.28], [0.08, 0.6, 0.08], 'timber', { q: rotX(s * 8 * DEG), pivot: [3.45, 0.31, 1.4 + s * 0.28] })),
   { c: [3.45, 0.58, 1.4], h: 0.14, r: [0.4, 0.4], n: 12, q: rotX(90 * DEG), color: 'stoneDark' },
+  // Axle through the grindstone centre and both wooden support posts.
+  { c: [3.45, 0.58, 1.4], h: 0.76, r: [0.06, 0.06], n: 8, q: rotX(90 * DEG), color: 'steel' },
   box([BAY, 1.5, HZ + 0.2], [0.3, 0.6, 0.03], 'leather'),
   box([BAY, 1.81, HZ + 0.2], [0.34, 0.1, 0.04], 'team'),
 

@@ -1,10 +1,10 @@
 // timber-tower.mjs — a 4 x 4 m log blockhouse for the timber wall: stone footing, twelve courses of
-// logs notched at the corners (the ends stick out 0.3 m), arrow slits, team banners, a plank door on
+// logs notched at the corners (the ends stick out 0.3 m), team banners, a plank door on
 // -Z, and an archers' platform at 7.0 m on braced beams with a crenellated plank parapet, corner log
 // pillars and a pennant. Centred on the wall line: a timber-wall-segment or timber-gate butts against
 // any of its four faces. Static: one mesh, one palette material, no skeleton.
 import { DEG, rotY } from '../unit-glb.mjs';
-import { PALETTE, PLINTH, FLAT, LOG_R, banner, beam, box, logColor, logX, logZ, onFace, rowY, slit } from './timber-common.mjs';
+import { PALETTE, PLINTH, FLAT, LOG_R, banner, beam, box, logColor, logX, logZ, onFace, rowY } from './timber-common.mjs';
 
 const S = 2.0, OVER = 0.3, N = 12;                    // half of the body, corner overhang, courses
 const BODY_TOP = PLINTH + N * 0.5, FLOOR = 7.0;
@@ -53,7 +53,6 @@ const PARTS = [
   box([0, (PLINTH + BODY_TOP) / 2, 0], [2 * S - 0.4, BODY_TOP - PLINTH, 2 * S - 0.4], 'woodDark'),
   ...logs, ...door,
   ...[['z', 1], ['x', 1], ['x', -1]].flatMap(([axis, sign]) => banner(axis, sign, S, 0, 5.4, 0.9, 1.7)),
-  ...FACES.flatMap(([axis, sign]) => slit(axis, sign, S, 1.1, 5.9)),
   ...braces,
   box([0, FLOOR - 0.38, 0], [2 * SL - 0.3, 0.24, 0.3], 'rail'),
   box([0, FLOOR - 0.38, 0], [0.3, 0.24, 2 * SL - 0.3], 'rail'),

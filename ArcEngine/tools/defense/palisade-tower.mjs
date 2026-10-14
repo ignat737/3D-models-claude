@@ -1,10 +1,10 @@
 // palisade-tower.mjs — a 3 x 3 m watchtower for the palisade: a closed log base, a plank deck at
-// 3.5 m that overhangs on braces, a sharpened log parapet with a gap at the ladder, four corner
-// posts under a shingled roof, team shields and a pennant. Archers stand on the deck.
+// 3.5 m that overhangs on braces, a sharpened log parapet with a gap at the ladder,
+// team shields and an open platform. Archers stand on the deck.
 // Palisade segments (palisade-segment.mjs) end flush against any of its four faces: the tower is
 // centred on the wall line, so a straight run, a corner and a T all use the same model.
 // Model space: meters, feet at y = 0, origin at the centre of the footprint; the ladder is on -Z.
-import { DEG, fromTo, rotY } from '../unit-glb.mjs';
+import { fromTo } from '../unit-glb.mjs';
 
 const PALETTE = [
   { name: 'wood', hex: '#7a5632' },
@@ -22,7 +22,6 @@ const SIDE = 3.0, H = SIDE / 2;               // footprint
 const R = 0.25, PITCH = 2 * R;                 // thicker logs than the wall's: the triangle budget
 const DECK_Y = 3.4, DECK_T = 0.2, DECK_H = 1.8, FLOOR = DECK_Y + DECK_T;
 const PARAPET = 1.35, TIP = 0.45;
-const POST_TOP = FLOOR + 2.2, ROOF_Y = POST_TOP;
 const BODY = ['wood', 'woodDark', 'woodLight'];
 
 const box = (c, s, color, extra) => ({ c, s, color, ...extra });
@@ -94,13 +93,7 @@ const PARTS = [
   ...parapet,
   ...ladder,
 
-  // Corner posts carry the roof.
-  ...[1, -1].flatMap(sx => [1, -1].map(sz => ({ c: [sx * (DECK_H - 0.2), (FLOOR + POST_TOP) / 2, sz * (DECK_H - 0.2)], h: POST_TOP - FLOOR, r: [0.2, 0.2], n: 6, color: 'rail' }))),
-  // Shingled roof: a four-sided pyramid with a ridge cap.
-  { c: [0, ROOF_Y + 0.45, 0], h: 0.9, r: [2.85, 0.1], n: 4, q: rotY(45 * DEG), color: 'shingle' },
-  { c: [0, ROOF_Y + 0.93, 0], h: 0.1, r: [0.16, 0.16], n: 6, color: 'woodDark' },
-
-  // Team colour: shields on the parapet and a pennant on the roof.
+  // Team colour: shields on the parapet.
   ...[0.75, -0.75].flatMap(u => [
     box([u, FLOOR + 0.62, DECK_H + 0.03], [0.55, 0.55, 0.05], 'team'),
     box([u, FLOOR + 0.62, DECK_H + 0.065], [0.2, 0.2, 0.04], 'teamDark'),
@@ -111,9 +104,6 @@ const PARTS = [
     box([-DECK_H - 0.03, FLOOR + 0.62, u], [0.05, 0.55, 0.55], 'team'),
     box([-DECK_H - 0.065, FLOOR + 0.62, u], [0.04, 0.2, 0.2], 'teamDark'),
   ]),
-  box([0, ROOF_Y + 1.35, 0], [0.07, 0.9, 0.07], 'woodLight'),
-  box([0.4, ROOF_Y + 1.6, 0], [0.7, 0.4, 0.04], 'team'),
-  box([0.86, ROOF_Y + 1.6, 0], [0.24, 0.2, 0.04], 'teamDark'),
 ];
 
 export default {

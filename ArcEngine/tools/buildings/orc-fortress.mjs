@@ -1,12 +1,12 @@
 // orc-fortress.mjs — an orc fortress: a ring of rough black stone walls with fang-shaped merlons, four
-// square corner towers with horns and braziers, a gatehouse whose arch is a toothed maw under a big
+// square corner towers with braziers, a gatehouse whose arch is a toothed maw under a big
 // tusked skull between two hide banners in the team colours, and an all-stone keep of two stages with
-// fang merlons, a fire bowl, horns, slits, skulls and banners; bone spikes and skulls in the walls, braziers
-// on the gatehouse, in the yard a fire pit, a rack of axes, skull stakes and a heap of bones. The orc twin of
+// fang merlons, a fire bowl, slits, skulls and banners; bone spikes and skulls in the walls, braziers
+// on the gatehouse, in the yard a fire pit, a rack of axes, skull stakes and rocks. The orc twin of
 // the human castle: the same 12.4 x 10.4 m on the wall axes.
 // Static: one mesh, one palette material, no skeleton, no clips.
 // Model space: meters, feet at y = 0, origin at the centre of the yard, the gate faces +Z.
-import { DEG, PALETTE, axe, bonePile, box, brazier, faceSpike, firePit, horn, pennant, rnd, rock, rotY, skull, skullStake, slit, spike } from './orc-kit.mjs';
+import { DEG, PALETTE, axe, box, brazier, faceSpike, firePit, pennant, rnd, rock, rotY, skull, skullStake, slit, spike } from './orc-kit.mjs';
 
 const WX = 6.2, WZ = 5.2, T = 1.2, WH = 4.0;          // wall axes, thickness, height of the wall walk
 const TW = 2.8, TH = 6.4;                             // corner tower: width, height
@@ -35,15 +35,14 @@ const cloth = (axis, sign, plane, u, yTop, w = 0.8, h = 1.6) => {
 
 const tower = (sx, sz) => {
   const x = sx * WX, z = sz * WZ;
-  const edge = (a, b) => [x + a * (TW / 2 - 0.25), TH + 0.15, z + b * (TW / 2 - 0.25)];
   return [
     box([x, 0.25, z], [TW + 0.4, 0.5, TW + 0.4], 'stoneDark'),
     box([x, TH / 2, z], [TW, TH, TW], 'stone'),
     box([x, TH + 0.15, z], [TW + 0.4, 0.3, TW + 0.4], 'stoneDark'),
-    ...[[sx, sz], [-sx, sz]].flatMap(([a, b]) => fang(x + a * (TW / 2 - 0.15), TH + 0.3, z + b * (TW / 2 - 0.15), 0.7, 0.45)),
-    // a slit on the outer faces and a band of lighter blocks
+    // Leave only the corner facing the courtyard (-sx, -sz) clear.
+    ...[[sx, sz], [-sx, sz], [sx, -sz]].flatMap(([a, b]) => fang(x + a * (TW / 2 - 0.15), TH + 0.3, z + b * (TW / 2 - 0.15), 0.7, 0.45)),
+    // A slit on the outer face.
     box([x, TH * 0.62, z + sz * (TW / 2 + 0.01)], [0.3, 1.0, 0.03], 'slit'),
-    box([x + sx * 0.5, 3.4, z + sz * (TW / 2 + 0.02)], [1.1, 0.7, 0.04], 'stoneLight'),
     spike([x + sx * (TW / 2), 4.4, z], [sx, 0.35, 0], 0.8, 0.09, 'bone'),
   ];
 };
@@ -80,6 +79,8 @@ const PARTS = [
   ...skull('z', -1, WZ + T / 2, 0, 2.6, 1.3),
   ...brazier(WX, TH + 1.0, -WZ),
   ...brazier(-WX, TH + 1.0, -WZ),
+  ...brazier(WX, TH + 1.0, WZ),
+  ...brazier(-WX, TH + 1.0, WZ),
 
   // Gatehouse: two blocks, a lintel with teeth hanging into the opening, a roof deck with fangs.
   ...[1, -1].map(s => box([s * (GATE.w / 2 + 1.0), GATE.top / 2, WZ], [2.0, GATE.top, GATE.d], 'stone')),
@@ -95,7 +96,7 @@ const PARTS = [
   box([1.1, 0.35, WZ + GATE.d / 2 + 0.3], [0.5, 0.7, 0.5], 'stoneDark'),
 
   // Keep: two stone stages (no timber): a wide lower body with buttresses, a narrower upper stage with
-  // slits, skulls and banners, a ledge with fang merlons, horns, a fire bowl on a stone pedestal.
+  // slits, skulls and banners, a ledge with fang merlons, a fire bowl on a stone pedestal.
   box([0, 0.2, KZ], [5.8, 0.4, 5.8], 'stoneDark'),
   box([0, 3.1, KZ], [5.0, 5.4, 5.0], 'stone'),
   box([0, 6.1, KZ], [5.7, 0.4, 5.7], 'stoneDark'),
@@ -107,7 +108,6 @@ const PARTS = [
     spike([a * 2.5, 5.3, KZ + b * 2.5], [a * 0.15, 1, b * 0.15], 0.9, 0.3, 'char'),
   ]),
   ...[-1.95, 0, 1.95].flatMap(x => [...fang(x, 9.4, KZ + 1.95, 0.8, 0.5), ...fang(x, 9.4, KZ - 1.95, 0.8, 0.5)]),
-  ...[[-1, 1], [1, 1]].flatMap(([a, b]) => horn([a * 2.2, 9.6, KZ + b * 2.2], [a, 0.9, b], 1.4)),
   { c: [0, 9.9, KZ], h: 0.9, r: [0.55, 0.4], n: 6, color: 'stoneDark' },
   { c: [0, 10.55, KZ], h: 0.4, r: [0.55, 0.8], n: 6, color: 'iron' },
   { c: [0, 11.2, KZ], h: 0.9, r: [0.6, 0.02], n: 4, color: 'fire' },
@@ -142,7 +142,6 @@ const PARTS = [
   ...axe(-3.3, 0.8, 2.28, { len: 0.9, tilt: -4 }), ...axe(-2.5, 0.8, 2.28, { len: 0.9, tilt: 4, color: 'stoneLight' }),
   ...skullStake(1.9, 2.6, 1.4, 0.9),
   ...skullStake(-1.9, 2.6, 1.1, 0.9),
-  ...bonePile(4.3, 2.8, 1.3),
   rock(4.4, -3.2, 0.6, 0.6, 'stone', { turn: 30 }),
 ];
 

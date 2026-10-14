@@ -1,5 +1,5 @@
 // stable.mjs — a long timber stable: plank walls on a stone footing, a steep thatched roof with a
-// hay-loft dormer and a hoist beam, three stalls with Dutch doors (two bay and white horses look
+// hay-loft dormer, three stalls with Dutch doors (two bay and white horses look
 // out), a paddock fence with a gap, a hay trough, hay bales, team lintels over the stalls and a
 // flag on the ridge.
 // Static: one mesh, one palette material, no skeleton, no clips.
@@ -90,7 +90,7 @@ const bale = (x, y, z) => [
   ...[-0.2, 0.2].map(dx => box([x + dx, y + 0.01, z], [0.04, 0.46, 0.52], 'woodDark')),
 ];
 
-const FZ = HZ + 1.7;                             // paddock fence line
+const FZ = HZ + DEPTH;                           // 8.0 x 4.6 m paddock, matching the building footprint
 const DORMER = { x: 0, w: 1.7, z: HZ + 0.02, top: TOP + 1.45 };
 
 const PARTS = [
@@ -109,7 +109,7 @@ const PARTS = [
   ...[1, -1].map(s => box([s * (HX + 0.08), TOP + 0.9, 0], [0.04, 0.4, 0.5], 'slit')),
   ...roof.parts,
 
-  // The hay-loft dormer: front wall with a dark door and a shed roof, a hoist beam.
+  // The hay-loft dormer: front wall with a dark door and a shed roof.
   box([DORMER.x, TOP + 0.7, DORMER.z + 0.1], [DORMER.w, 1.3, 0.2], 'wood'),
   box([DORMER.x, TOP + 0.6, DORMER.z + 0.22], [1.0, 0.9, 0.06], 'woodDark'),
   box([DORMER.x, TOP + 0.6, DORMER.z + 0.255], [0.84, 0.76, 0.04], 'slit'),
@@ -117,9 +117,6 @@ const PARTS = [
   ...[1, -1].map(s => box([DORMER.x + s * DORMER.w / 2, TOP + 0.7, DORMER.z - 0.7], [0.14, 1.3, 1.7], 'wood')),
   box([DORMER.x, TOP + 1.42, DORMER.z - 0.55], [DORMER.w + 0.4, 0.2, 2.1], 'thatch', { q: rotX(10 * DEG), pivot: [DORMER.x, TOP + 1.42, DORMER.z - 0.55] }),
   box([DORMER.x, TOP + 1.3, DORMER.z + 0.46], [DORMER.w + 0.4, 0.12, 0.12], 'thatchDark'),
-  box([DORMER.x, TOP + 1.62, DORMER.z + 0.65], [0.12, 0.12, 1.4], 'woodDark'),
-  box([DORMER.x, TOP + 1.3, DORMER.z + 1.2], [0.03, 0.62, 0.03], 'iron'),
-  { c: [DORMER.x, TOP + 0.9, DORMER.z + 1.2], h: 0.16, r: [0.08, 0.08], n: 6, q: rotZ(90 * DEG), color: 'iron' },
 
   // Stalls and the two horses.
   ...STALLS.flatMap(stall),
@@ -138,8 +135,6 @@ const PARTS = [
   box([2.5, 0.3, HZ + 1.15], [1.3, 0.34, 0.5], 'woodDark'),
   box([2.5, 0.45, HZ + 1.15], [1.1, 0.12, 0.3], 'hay'),
   ...bale(3.2, 0.225, HZ + 0.4), ...bale(2.0, 0.225, HZ + 0.4), ...bale(2.6, 0.675, HZ + 0.4),
-  // A team blanket over the fence rail.
-  box([-0.4, 0.9, FZ], [0.8, 0.1, 0.22], 'team'),
 
   // Flag on the ridge.
   ...flag(3.0, RIDGE, 0, { pole: 1.5, poleColor: 'woodDark' }),
@@ -148,6 +143,6 @@ const PARTS = [
 export default {
   name: 'stable', static: true, joints: [], palette: PALETTE, parts: PARTS, clips: [],
   preview: '25,90,155', previewGap: 330,
-  withAt: [0, 4.6],
+  withAt: [0, FZ + 0.6],
   previewZoom: 1.45,
 };

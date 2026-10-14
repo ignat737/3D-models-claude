@@ -1,9 +1,9 @@
 // timber-wall-segment.mjs — a 10 m segment of a timber curtain wall: a stone footing, eight courses of
 // hexagonal logs (4.1 m) on both faces round a plank core, props on the inner side, a plank wall walk
-// at 4.6 m behind a parapet with six merlons, arrow slits and a team banner. The middle type between
+// at 4.6 m behind a parapet with six merlons and a team banner. The middle type between
 // palisade-segment and stone-wall-segment; ends flush at x = +-5, so it chains with its own gate and
 // tower. Static: one mesh, one palette material, no skeleton.
-import { PALETTE, THICK, PLINTH, ROWS, WALK, banner, beam, box, masonry, slit, wallLogs, wallTop } from './timber-common.mjs';
+import { PALETTE, THICK, PLINTH, ROWS, WALK, banner, beam, box, masonry, wallLogs, wallTop } from './timber-common.mjs';
 
 const H = THICK / 2;
 const PARTS = [
@@ -17,7 +17,6 @@ const PARTS = [
     box([x, 0.07, -H - 1.4], [0.34, 0.14, 0.36], 'earth'),
   ]),
   ...wallTop(),
-  ...[-2.5, 2.5].flatMap(u => slit('z', 1, H, u, 2.9)),
   ...banner('z', 1, H, 0, 4.3),
 ];
 

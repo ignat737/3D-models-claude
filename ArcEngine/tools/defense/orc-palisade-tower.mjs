@@ -1,10 +1,10 @@
 // orc-palisade-tower.mjs — a 3 x 3 m orc watchtower for the orc palisade: a closed base of thick
 // logs, a plank deck at 3.8 m on braces, a parapet of crooked charred-tip logs leaning out (one gap
-// at the ladder), four poles under a crooked hide canopy, horns, a fire bowl, a tusked skull and a
+// at the ladder), an open platform, a fire bowl, tusked skulls and a
 // tattered team banner. Centred on the wall line like palisade-tower: an orc-palisade-segment or
 // gate butts against any of its four faces. Static: one mesh, one palette material.
 import { DEG, rotX, rotZ } from '../unit-glb.mjs';
-import { PALETTE, banner, beam, box, brazier, horn, palisadeLog, rnd, skull, spike } from './orc-common.mjs';
+import { PALETTE, banner, beam, box, brazier, palisadeLog, rnd, skull, spike } from './orc-common.mjs';
 
 const H = 1.5, R = 0.25, FLAT = R * Math.sqrt(3) / 2, DECK_Y = 3.6, FLOOR = DECK_Y + 0.2, DH = 1.8;
 const BODY = ['wood', 'woodDark', 'woodLight'];
@@ -47,8 +47,7 @@ const ladder = [
   }),
 ];
 
-// Four poles hold a crooked canopy of hide; the horns and the fire sit on the corners.
-const POLE = FLOOR + 2.3;
+// The platform is open above the parapet.
 const PARTS = [
   box([0, 0.07, 0], [3.6, 0.14, 3.6], 'earth'),
   ...base,
@@ -57,17 +56,11 @@ const PARTS = [
   ...Array.from({ length: 6 }, (_, i) => box([0, DECK_Y + 0.1, -DH + (i + 0.5) * 2 * DH / 6], [2 * DH, 0.2, 2 * DH / 6 - 0.012], i % 2 ? 'woodLight' : 'wood')),
   ...braces, ...parapet, ...ladder,
 
-  ...[1, -1].flatMap(sx => [1, -1].map(sz => ({ c: [sx * (DH - 0.35), (FLOOR + POLE) / 2, sz * (DH - 0.35)], h: POLE - FLOOR, r: [0.12, 0.1], n: 6, color: 'woodDark' }))),
-  box([0, POLE + 0.1, 0], [3.5, 0.14, 3.5], 'hide', { q: rotZ(7 * DEG), pivot: [0, POLE + 0.1, 0] }),
-  box([0.2, POLE + 0.34, 0], [1.4, 0.1, 1.4], 'hide', { q: rotZ(7 * DEG), pivot: [0.2, POLE + 0.34, 0] }),
-  ...horn([DH - 0.3, POLE + 0.25, DH - 0.3], [1, 0.5, 1], 0.9),
-  ...horn([-DH + 0.3, POLE + 0.4, DH - 0.3], [-1, 0.5, 1], 0.9),
   ...brazier(-DH + 0.5, FLOOR + 0.95, -DH + 0.5),
 
-  // Trophies on the base and on the roof edge, a banner on the front.
+  // Trophies on the base, a banner on the front.
   ...skull('z', 1, H, -1.15, 2.6, 1.2, true),
   ...skull('x', 1, H, 0, 2.6, 1.2, true),
-  ...skull('z', 1, DH - 0.1, 0, FLOOR + 2.2, 1.0, true),
   ...banner('z', 1, H, 0.45, 3.3, 0.9, 1.6),
   ...[2, -2].flatMap(k => [spike([k * 0.55 - 0.1, 0.8, H], [0, 0.35, 1], 0.9, 0.08), spike([k * 0.55 + 0.1, 1.5, H], [0, 0.45, 1], 0.8, 0.08)]),
   box([DH - 0.3, FLOOR + 1.8, -DH + 0.3], [0.08, 3.6, 0.08], 'woodDark'),

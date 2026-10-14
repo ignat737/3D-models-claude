@@ -3,7 +3,7 @@
 // skulls, a plank door on -Z, an archers' platform at 7.0 m on braces with a parapet of pointed
 // merlons, a bone horn on each corner, fire bowls, a team banner and a pennant. Centred on the wall
 // line like timber-tower: an orc-timber-wall-segment or gate butts against any of its faces.
-import { PALETTE, banner, beam, box, brazier, horn, masonry, merlons, onFace, skull, slit, spike, spikeRows } from './orc-common.mjs';
+import { PALETTE, banner, beam, box, brazier, horn, masonry, merlons, onFace, skull, spike, spikeRows } from './orc-common.mjs';
 import { FLAT, PLINTH, logX, logZ, logColor, rowY } from './timber-common.mjs';
 
 const S = 2.0, OVER = 0.3, N = 12;
@@ -40,7 +40,6 @@ const PARTS = [
   box([0, (PLINTH + BODY_TOP) / 2, 0], [2 * S - 0.4, BODY_TOP - PLINTH, 2 * S - 0.4], 'woodDark'),
   ...logs, ...door,
   ...[['z', 1], ['x', 1], ['x', -1]].flatMap(([axis, sign]) => banner(axis, sign, S, 0, 5.5, 0.9, 1.7)),
-  ...FACES.flatMap(([axis, sign]) => slit(axis, sign, S, 1.2, 6.0)),
   ...[['z', 1], ['x', 1], ['x', -1]].flatMap(([axis, sign]) => spikeRows(axis, sign, S, -1.9, 1.9, [1.7, 3.3], 1.3, 9)),
   ...braces,
   box([0, FLOOR - 0.38, 0], [2 * SL - 0.3, 0.24, 0.3], 'woodDark'),
