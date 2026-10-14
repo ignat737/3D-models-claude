@@ -1,11 +1,12 @@
-// castle.mjs — a castle: a curtain wall with battlements and four round corner towers under team
-// coloured cone roofs, a gatehouse with a half-raised portcullis, a lowered drawbridge on chains
-// and banners, a tall keep with four turrets and a flag, and a cobbled courtyard with a well and
-// barrels.
+// castle.mjs — a castle: a curtain wall with battlements and buttresses, four round corner towers
+// with open crenellated fighting platforms (no roofs; braziers and team flags inside), a gatehouse
+// with a half-raised portcullis, torches, a lowered drawbridge on chains and banners, a tall keep
+// with four turrets, windows, a balcony and a flag, and a cobbled courtyard with a flagstone path,
+// a stair to the wall walk, a well, a training dummy, a weapon rack, barrels and crates.
 // Static: one mesh, one palette material, no skeleton, no clips.
 // Model space: meters, feet at y = 0, origin at the centre of the walls, the gate and the
 // drawbridge face +Z.
-import { DEG, rotX } from '../unit-glb.mjs';
+import { DEG, rotX, rotY } from '../unit-glb.mjs';
 import { barrel, box, flag, strut } from './kit.mjs';
 
 const PALETTE = [
@@ -21,11 +22,11 @@ const PALETTE = [
   { name: 'gold', hex: '#d9a93a' },
   { name: 'team', hex: '#2f5da8' },
   { name: 'teamDark', hex: '#22447d' },
+  { name: 'fire', hex: '#f08a2c' },
 ];
 
 const CX = 6.2, CZ = 5.2;                     // corner tower centres
 const T = 1.0, WH = 4.6;                      // wall thickness, height
-const TOWER_R = 1.55, TOWER_H = 7.2;
 const GATE_W = 0.9, GATE_Z0 = 3.9, GATE_Z1 = 6.55, GATE_H = 6.8;
 const KEEP = { x: 0, z: -1.9, w: 5.2, h: 10.0 };
 
@@ -35,14 +36,34 @@ const merlons = (axis, fixed, a, b, n, y) => Array.from({ length: n }, (_, i) =>
   return box(axis === 'x' ? [t, y, fixed] : [fixed, y, t], axis === 'x' ? [0.7, 0.8, 0.36] : [0.36, 0.8, 0.7], 'stone');
 });
 
-// A round corner tower: shaft, flared top, a cone roof in the team colour, a slit.
-const tower = (x, z) => [
-  { c: [x, TOWER_H / 2, z], h: TOWER_H, r: [TOWER_R + 0.15, TOWER_R], n: 8, color: 'stone' },
-  { c: [x, TOWER_H + 0.25, z], h: 0.5, r: [TOWER_R, TOWER_R + 0.3], n: 8, color: 'stoneDark' },
-  { c: [x, TOWER_H + 0.5 + 1.2, z], h: 2.4, r: [TOWER_R + 0.35, 0.05], n: 8, color: 'team' },
-  { c: [x, TOWER_H + 0.55, z], h: 0.1, r: [TOWER_R + 0.35, TOWER_R + 0.35], n: 8, color: 'teamDark' },
-  box([x + Math.sign(x) * TOWER_R * 0.97, 5.6, z], [0.08, 0.7, 0.14], 'slit'),
-];
+// An open corner tower: a drum, a flared corbel course that carries the platform floor, and a
+// ring of eight parapet panels with merlons — no roof. Inside: a brazier, a hatch, a team flag.
+const POLY = Math.cos(Math.PI / 8);            // apothem / vertex radius of the 8-gon
+const FLOOR = 6.6, PARAPET = 1.1, WALL_T = 0.32;
+const drumApothem = y => (1.75 - 0.17 * y / (FLOOR - 0.4)) * POLY;
+const radial = (x, z, a, rad, y, [h, len], color, thick = WALL_T) =>
+  box([x + rad * Math.cos(a), y, z + rad * Math.sin(a)], [thick, h, len], color, { q: rotY(-a) });
+
+const tower = (x, z) => {
+  const sx = Math.sign(x), sz = Math.sign(z);
+  const apo = 2.0 * POLY, chord = 2 * apo * Math.tan(Math.PI / 8), mid = apo - WALL_T / 2;
+  const edges = Array.from({ length: 8 }, (_, i) => (22.5 + 45 * i) * DEG);
+  const out = Math.atan2(sz, sx);
+  const slitAngles = [out - 22.5 * DEG, out + 22.5 * DEG];
+  return [
+    { c: [x, (FLOOR - 0.4) / 2, z], h: FLOOR - 0.4, r: [1.75, 1.58], n: 8, color: 'stone' },
+    { c: [x, FLOOR - 0.2, z], h: 0.4, r: [1.58, 2.0], n: 8, color: 'stoneDark' },
+    ...edges.flatMap(a => [
+      radial(x, z, a, mid, FLOOR + PARAPET / 2, [PARAPET, chord], 'stone'),
+      radial(x, z, a, mid, FLOOR + PARAPET + 0.35, [0.7, 0.75], 'stone'),
+    ]),
+    ...slitAngles.map(a => radial(x, z, a, drumApothem(4.2) + 0.01, 4.2, [0.7, 0.14], 'slit', 0.08)),
+    { c: [x - sx * 0.75, FLOOR + 0.4, z - sz * 0.75], h: 0.8, r: [0.1, 0.38], n: 6, color: 'iron' },
+    { c: [x - sx * 0.75, FLOOR + 1.0, z - sz * 0.75], h: 0.4, r: [0.3, 0.04], n: 6, color: 'fire' },
+    box([x + sx * 0.6, FLOOR + 0.03, z - sz * 0.6], [0.8, 0.06, 0.8], 'timberLight'),
+    ...flag(x, FLOOR, z, { pole: 3.0 }),
+  ];
+};
 
 // A turret on a keep corner.
 const turret = (x, z) => [
@@ -75,6 +96,14 @@ const PARTS = [
   // Four corner towers.
   ...tower(CX, CZ), ...tower(-CX, CZ), ...tower(CX, -CZ), ...tower(-CX, -CZ),
 
+  // Wall details: buttresses and arrow slits outside, a stair to the east wall walk inside.
+  ...[-3, 0, 3].map(x => box([x, 2.1, -CZ - T / 2 - 0.2], [0.6, WH - 0.5, 0.4], 'stoneDark')),
+  ...[1, -1].flatMap(s => [-2, 2].map(z => box([s * (CX + T / 2 + 0.2), 2.1, z], [0.4, WH - 0.5, 0.6], 'stoneDark'))),
+  ...[-1.5, 1.5].map(x => box([x, 2.8, -CZ - T / 2 - 0.02], [0.1, 0.8, 0.06], 'slit')),
+  ...[1, -1].map(s => box([s * (CX + T / 2 + 0.02), 2.8, 0], [0.06, 0.8, 0.1], 'slit')),
+  ...[1, -1].map(s => box([s * 4.5, 2.8, CZ + T / 2 + 0.02], [0.1, 0.8, 0.06], 'slit')),
+  ...Array.from({ length: 7 }, (_, i) => box([5.25, (i + 1) * WH / 7 / 2, 3.2 - i * 0.45], [0.9, (i + 1) * WH / 7, 0.45], i % 2 ? 'stoneLight' : 'stone')),
+
   // Gatehouse: two flanking towers, a block over the passage, battlements, a lintel, a half-raised
   // portcullis, banners, and a drawbridge on chains.
   ...[1, -1].flatMap(s => [
@@ -100,6 +129,12 @@ const PARTS = [
   ...[0.5, 1.6].map(dz => box([0, 0.3 - dz * Math.tan(7 * DEG) + 0.08, GATE_Z1 - 0.05 + dz], [1.74, 0.04, 0.1], 'timber', { q: rotX(7 * DEG), pivot: [0, 0.3, GATE_Z1 + 1.15] })),
   ...[1, -1].map(s => strut(s * 0.8, [3.3, GATE_Z1 + 0.1], [0.45, GATE_Z1 + 2.2], 0.06, 'iron')),
 
+  ...[1, -1].map(s => box([s * (GATE_W + 0.15), 1.7, GATE_Z1 + 0.06], [0.3, 3.4, 0.12], 'stoneLight')),
+  ...[1, -1].flatMap(s => [
+    box([s * (GATE_W + 0.5), 3.0, GATE_Z1 + 0.14], [0.1, 0.1, 0.16], 'iron'),
+    { c: [s * (GATE_W + 0.5), 3.3, GATE_Z1 + 0.14], h: 0.4, r: [0.14, 0.03], n: 6, color: 'fire' },
+  ]),
+
   // The keep: a tall block, cornice, merlons, four turrets, a door, slits, banners, a flag.
   box([KEEP.x, KEEP.h / 2, KEEP.z], [KEEP.w, KEEP.h, KEEP.w], 'stone'),
   box([KEEP.x, 0.3, KEEP.z], [KEEP.w + 0.4, 0.6, KEEP.w + 0.4], 'stoneDark'),
@@ -118,6 +153,17 @@ const PARTS = [
   ...[1, -1].map(s => box([s * 1.0, 6.2, KZF + 0.04], [0.9, 3.2, 0.04], 'team')),
   ...[1, -1].map(s => box([s * 1.0, 4.5, KZF + 0.04], [0.9, 0.14, 0.04], 'teamDark')),
   ...[1, -1].map(s => box([s * 1.0, 6.9, KZF + 0.06], [0.3, 0.3, 0.012], 'gold')),
+  box([0, 3.1, KZF + 0.4], [1.9, 0.14, 0.8], 'timberLight'),
+  ...[1, -1].map(s => box([s * 0.7, 2.75, KZF + 0.25], [0.14, 0.55, 0.5], 'stoneDark')),
+  box([0, 8.9, KZF + 0.07], [KEEP.w + 0.2, 0.16, 0.14], 'stoneDark'),
+  box([0, 8.9, KEEP.z - KX - 0.07], [KEEP.w + 0.2, 0.16, 0.14], 'stoneDark'),
+  ...[1, -1].map(s => box([s * (KX + 0.07), 8.9, KEEP.z], [0.14, 0.16, KEEP.w], 'stoneDark')),
+  ...[1, -1].flatMap(s => [
+    box([s * (KX + 0.02), 6.0, KEEP.z], [0.04, 1.3, 0.5], 'stoneLight'),
+    box([s * (KX + 0.04), 6.0, KEEP.z], [0.06, 0.9, 0.18], 'slit'),
+  ]),
+  box([0, 6.0, KEEP.z - KX - 0.02], [0.5, 1.3, 0.04], 'stoneLight'),
+  box([0, 6.0, KEEP.z - KX - 0.04], [0.18, 0.9, 0.06], 'slit'),
   ...flag(0, KEEP.h + 0.25, KEEP.z, { pole: 3.2 }),
 
   // Courtyard: a well with a little frame, barrels, crates.
@@ -127,10 +173,19 @@ const PARTS = [
   box([WELL[0], 1.95, WELL[1]], [1.5, 0.1, 0.14], 'timber'),
   ...barrel(3.6, 3.2), ...barrel(-4.4, -3.6),
   box([-4.5, 0.45, 2.4], [0.8, 0.7, 0.8], 'timberLight'),
+  box([-4.5, 1.05, 2.4], [0.5, 0.5, 0.5], 'timber'),
+  box([0, 0.12, 2.3], [1.6, 0.04, 3.2], 'stoneLight'),
+  // Training dummy and a weapon rack.
+  box([3.9, 0.8, -2.2], [0.12, 1.6, 0.12], 'timber'),
+  box([3.9, 1.3, -2.2], [0.9, 0.1, 0.1], 'timber'),
+  box([3.9, 1.7, -2.2], [0.3, 0.3, 0.3], 'timberLight'),
+  ...[-4.9, -3.9].map(x => box([x, 0.6, -1.4], [0.1, 1.2, 0.1], 'timber')),
+  box([-4.4, 1.0, -1.4], [1.1, 0.08, 0.08], 'timber'),
+  ...[-4.65, -4.4, -4.15].map(x => box([x, 0.95, -1.4], [0.04, 1.7, 0.04], 'iron')),
 ];
 
 export default {
-  name: 'castle', static: true, joints: [], palette: PALETTE, parts: PARTS, clips: [],
+  name: 'castle', static: true, joints: [], palette: PALETTE, parts: PARTS, clips: [], maxTriangles: 4000,
   preview: '25,90,155', previewGap: 560,
   withAt: [0, GATE_Z1 + 3.4],
   previewZoom: 2.2,

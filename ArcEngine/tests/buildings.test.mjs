@@ -16,9 +16,9 @@ function parseGlb(buf) {
 }
 
 // Vertical rays across the standing area must reach the deck with nothing overhead.
-function assertOpenDeck(building, floor) {
+function assertOpenDeck(building, floor, points = [-0.7, 0, 0.7].flatMap(x => [-0.9, 0.3, 0.9].map(z => [x, z]))) {
   const mesh = buildMesh(building);
-  for (const x of [-0.7, 0, 0.7]) for (const z of [-0.9, 0.3, 0.9]) {
+  for (const [x, z] of points) {
     let hasFloor = false;
     for (let i = 0; i < mesh.indices.length; i += 3) {
       const [a, b, c] = [0, 1, 2].map(k => mesh.positions.slice(mesh.indices[i + k] * 3, mesh.indices[i + k] * 3 + 3));
@@ -151,10 +151,19 @@ test('ратуша: башня с часами выше конька, колок
   assert.ok(bounds(b).max[1] > 13, 'с флагом выше 13 м');
 });
 
-test('замок: четыре круглые башни с конусами цвета команды, ворота с решёткой и мостом, донжон выше стен, двор', () => {
+test('замок: четыре открытые угловые башни без крыш, башенки донжона с конусами, ворота с решёткой и мостом, донжон выше стен, двор', () => {
   const b = BUILDINGS.find(p => p.name === 'castle');
+  assert.equal(b.maxTriangles, 4000);
   const cones = b.parts.filter(p => p.n === 8 && p.color === 'team' && p.r[1] < 0.1);
-  assert.equal(cones.length, 8, 'четыре угловые башни и четыре башенки донжона');
+  assert.equal(cones.length, 4, 'конусы только у четырёх башенок донжона');
+  assert.ok(cones.every(p => Math.abs(p.c[0]) < 3 && Math.abs(p.c[2] + 1.9) < 3), 'на угловых башнях крыш нет');
+  for (const sx of [1, -1]) for (const sz of [1, -1]) {
+    const hatch = [[0.4, 0.4], [0.6, 0.6], [0.8, 0.8]].map(([u, v]) => [sx * 6.2 + sx * u, sz * 5.2 - sz * v]);
+    assertOpenDeck(b, 6.66, hatch);
+    const parapet = b.parts.filter(p => p.s && p.color === 'stone' && p.c[1] > 6.6 && p.c[1] < 8.2 && Math.hypot(p.c[0] - sx * 6.2, p.c[2] - sz * 5.2) < 2.1);
+    assert.equal(parapet.length, 16, 'восемь панелей парапета и восемь зубцов');
+  }
+  assert.ok(b.parts.some(p => p.color === 'fire'), 'жаровни и факелы');
   assert.ok(b.parts.filter(p => p.color === 'iron' && p.s && p.s[1] > 1.5).length >= 5, 'прутья решётки');
   assert.ok(b.parts.some(p => p.color === 'timberLight' && p.q && p.s[2] > 2), 'опущенный мост');
   assert.ok(b.parts.some(p => p.color === 'cobble'), 'мощёный двор');
