@@ -160,7 +160,7 @@ test('замок: четыре открытые угловые башни без
   for (const sx of [1, -1]) for (const sz of [1, -1]) {
     const hatch = [[0.4, 0.4], [0.6, 0.6], [0.8, 0.8]].map(([u, v]) => [sx * 6.2 + sx * u, sz * 5.2 - sz * v]);
     assertOpenDeck(b, 6.66, hatch);
-    const parapet = b.parts.filter(p => p.s && p.color === 'stone' && p.c[1] > 6.6 && p.c[1] < 8.2 && Math.hypot(p.c[0] - sx * 6.2, p.c[2] - sz * 5.2) < 2.1);
+    const parapet = b.parts.filter(p => p.s && p.color === 'stone' && p.c[1] > 6.6 && p.c[1] < 8.2 && Math.hypot(p.c[0] - sx * 6.2, p.c[2] - sz * 5.2) < 2.7);
     assert.equal(parapet.length, 16, 'восемь панелей парапета и восемь зубцов');
   }
   assert.ok(b.parts.some(p => p.color === 'fire'), 'жаровни и факелы');

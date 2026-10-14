@@ -2,7 +2,7 @@
 // with open crenellated fighting platforms (no roofs; braziers and team flags inside), a gatehouse
 // with a half-raised portcullis, torches, a lowered drawbridge on chains and banners, a tall keep
 // with four turrets, windows, a balcony and a flag, and a cobbled courtyard with a flagstone path,
-// a stair to the wall walk, a well, a training dummy, a weapon rack, barrels and crates.
+// a well, a training dummy, a weapon rack, barrels and crates.
 // Static: one mesh, one palette material, no skeleton, no clips.
 // Model space: meters, feet at y = 0, origin at the centre of the walls, the gate and the
 // drawbridge face +Z.
@@ -39,20 +39,21 @@ const merlons = (axis, fixed, a, b, n, y) => Array.from({ length: n }, (_, i) =>
 // An open corner tower: a drum, a flared corbel course that carries the platform floor, and a
 // ring of eight parapet panels with merlons — no roof. Inside: a brazier, a hatch, a team flag.
 const POLY = Math.cos(Math.PI / 8);            // apothem / vertex radius of the 8-gon
+const TR = 1.25;                               // corner tower radius scale
 const FLOOR = 6.6, PARAPET = 1.1, WALL_T = 0.32;
-const drumApothem = y => (1.75 - 0.17 * y / (FLOOR - 0.4)) * POLY;
+const drumApothem = y => (1.75 - 0.17 * y / (FLOOR - 0.4)) * TR * POLY;
 const radial = (x, z, a, rad, y, [h, len], color, thick = WALL_T) =>
   box([x + rad * Math.cos(a), y, z + rad * Math.sin(a)], [thick, h, len], color, { q: rotY(-a) });
 
 const tower = (x, z) => {
   const sx = Math.sign(x), sz = Math.sign(z);
-  const apo = 2.0 * POLY, chord = 2 * apo * Math.tan(Math.PI / 8), mid = apo - WALL_T / 2;
+  const apo = 2.0 * TR * POLY, chord = 2 * apo * Math.tan(Math.PI / 8), mid = apo - WALL_T / 2;
   const edges = Array.from({ length: 8 }, (_, i) => (22.5 + 45 * i) * DEG);
   const out = Math.atan2(sz, sx);
   const slitAngles = [out - 22.5 * DEG, out + 22.5 * DEG];
   return [
-    { c: [x, (FLOOR - 0.4) / 2, z], h: FLOOR - 0.4, r: [1.75, 1.58], n: 8, color: 'stone' },
-    { c: [x, FLOOR - 0.2, z], h: 0.4, r: [1.58, 2.0], n: 8, color: 'stoneDark' },
+    { c: [x, (FLOOR - 0.4) / 2, z], h: FLOOR - 0.4, r: [1.75 * TR, 1.58 * TR], n: 8, color: 'stone' },
+    { c: [x, FLOOR - 0.2, z], h: 0.4, r: [1.58 * TR, 2.0 * TR], n: 8, color: 'stoneDark' },
     ...edges.flatMap(a => [
       radial(x, z, a, mid, FLOOR + PARAPET / 2, [PARAPET, chord], 'stone'),
       radial(x, z, a, mid, FLOOR + PARAPET + 0.35, [0.7, 0.75], 'stone'),
@@ -96,13 +97,11 @@ const PARTS = [
   // Four corner towers.
   ...tower(CX, CZ), ...tower(-CX, CZ), ...tower(CX, -CZ), ...tower(-CX, -CZ),
 
-  // Wall details: buttresses and arrow slits outside, a stair to the east wall walk inside.
+  // Wall details: buttresses and arrow slits outside.
   ...[-3, 0, 3].map(x => box([x, 2.1, -CZ - T / 2 - 0.2], [0.6, WH - 0.5, 0.4], 'stoneDark')),
   ...[1, -1].flatMap(s => [-2, 2].map(z => box([s * (CX + T / 2 + 0.2), 2.1, z], [0.4, WH - 0.5, 0.6], 'stoneDark'))),
   ...[-1.5, 1.5].map(x => box([x, 2.8, -CZ - T / 2 - 0.02], [0.1, 0.8, 0.06], 'slit')),
   ...[1, -1].map(s => box([s * (CX + T / 2 + 0.02), 2.8, 0], [0.06, 0.8, 0.1], 'slit')),
-  ...[1, -1].map(s => box([s * 4.5, 2.8, CZ + T / 2 + 0.02], [0.1, 0.8, 0.06], 'slit')),
-  ...Array.from({ length: 7 }, (_, i) => box([5.25, (i + 1) * WH / 7 / 2, 3.2 - i * 0.45], [0.9, (i + 1) * WH / 7, 0.45], i % 2 ? 'stoneLight' : 'stone')),
 
   // Gatehouse: two flanking towers, a block over the passage, battlements, a lintel, a half-raised
   // portcullis, banners, and a drawbridge on chains.
@@ -171,7 +170,7 @@ const PARTS = [
   { c: [WELL[0], 0.78, WELL[1]], h: 0.04, r: [0.5, 0.5], n: 8, color: 'water' },
   ...[1, -1].map(s => box([WELL[0] + s * 0.6, 1.2, WELL[1]], [0.1, 1.5, 0.1], 'timber')),
   box([WELL[0], 1.95, WELL[1]], [1.5, 0.1, 0.14], 'timber'),
-  ...barrel(3.6, 3.2), ...barrel(-4.4, -3.6),
+  ...barrel(3.6, 3.2), ...barrel(-3.6, -3.4),
   box([-4.5, 0.45, 2.4], [0.8, 0.7, 0.8], 'timberLight'),
   box([-4.5, 1.05, 2.4], [0.5, 0.5, 0.5], 'timber'),
   box([0, 0.12, 2.3], [1.6, 0.04, 3.2], 'stoneLight'),
