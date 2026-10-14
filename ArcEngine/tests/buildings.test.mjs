@@ -488,19 +488,30 @@ test('логово троллей: пещера по росту тролля (2,
   assert.ok(max[0] - min[0] >= 14 && max[2] - min[2] >= 16, 'курган шире 14 м, глубже 16 м вместе с двором');
 });
 
-test('мастерские осадных машин: ворота шире осадной башни, во дворе колёса и высокий каркас башни, цвет команды', () => {
+test('мастерские осадных машин: двор перед воротами за забором с проездом, машины и леса башни внутри двора', () => {
   const by = n => BUILDINGS.find(b => b.name === n);
   // The gate width: the timber lintel of the human hall is 0.6 m wider than its opening; the orc gate is a slit panel.
   const gateWidth = {
     'siege-workshop': by('siege-workshop').parts.find(p => p.color === 'timber' && p.s && p.s[1] === 0.3 && p.s[0] > 3.5).s[0] - 0.6,
     'orc-siege-workshop': by('orc-siege-workshop').parts.find(p => p.color === 'slit' && p.s && p.s[1] === 2.5 && p.s[2] < 0.1).s[0],
   };
-  for (const [n, towerWidth] of [['siege-workshop', 2.38], ['orc-siege-workshop', 2.58]]) {
-    const b = by(n), { min, max } = bounds(b);
+  // [tower width, yard half-width, hall front z, yard depth]
+  for (const [n, towerWidth, yardHalf] of [['siege-workshop', 2.38, 6], ['orc-siege-workshop', 2.58, 6.5]]) {
+    const b = by(n), { min, max } = bounds(b), frontZ = 3, depth = 7.4;
     assert.ok(gateWidth[n] >= towerWidth + 0.4, n + ': ворота шире башни');
-    assert.ok(max[0] - min[0] >= 14, n + ': зал и два двора по X');
+    assert.ok(max[2] >= frontZ + depth - 0.2 && max[2] <= frontZ + depth + 0.6, n + ': двор глубиной 7,4 м перед фасадом');
+    assert.ok(max[0] - min[0] >= 2 * yardHalf - 0.1 && max[0] - min[0] <= 2 * yardHalf + 1.6, n + ': двор по ширине зала и двора, без пристроек сбоку');
+    // The fence: posts all round the yard, a gap of at least the tower width in the front run.
+    const post = p => p.s && Math.abs(p.s[0] - p.s[2]) < 1e-6 && p.s[1] > 1 && p.s[1] < 2.6 && p.c[2] > frontZ + depth - 0.01 && p.c[2] < frontZ + depth + 0.01;
+    const front = b.parts.filter(post).map(p => p.c[0]).sort((x, y) => x - y);
+    let gap = 0;
+    for (let i = 1; i < front.length; i++) gap = Math.max(gap, front[i] - front[i - 1]);
+    assert.ok(gap >= towerWidth + 0.4, n + ': проезд в заборе шире башни');
+    assert.ok(b.parts.filter(p => p.s && p.s[1] >= 1 && p.s[1] <= 2.6 && Math.abs(p.s[0] - p.s[2]) < 1e-6 && p.c[2] > frontZ + 0.5 && Math.abs(Math.abs(p.c[0]) - yardHalf) < 0.4).length >= 6, n + ': боковые заборы');
+    // Machines stand inside the yard.
+    const inYard = p => Math.abs(p.c[0]) < yardHalf && p.c[2] > frontZ + 1 && p.c[2] < frontZ + depth - 0.5;
+    assert.ok(b.parts.filter(p => p.n === 8 && p.h <= 0.2 && p.r[0] >= 0.38 && inYard(p)).length >= 4, n + ': колёса машин во дворе');
+    assert.ok(b.parts.some(p => (p.s ? p.s[1] : p.h) >= 4.4 && inYard(p)), n + ': каркас башни во дворе');
     assert.ok(b.parts.some(p => p.color === 'team') && b.parts.some(p => p.color === 'teamDark'), n + ': цвет команды');
-    assert.ok(b.parts.filter(p => p.n === 8 && p.h <= 0.2 && p.r[0] >= 0.38).length >= 4, n + ': колёса машин');
-    assert.ok(b.parts.some(p => (p.s ? p.s[1] : p.h) >= 4.4 && !p.q) || b.parts.some(p => p.n === 6 && p.h >= 4.4), n + ': высокие стойки каркаса башни');
   }
 });
