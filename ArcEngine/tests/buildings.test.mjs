@@ -151,12 +151,13 @@ test('ратуша: башня с часами выше конька, колок
   assert.ok(bounds(b).max[1] > 13, 'с флагом выше 13 м');
 });
 
-test('замок: четыре открытые угловые башни без крыш, башенки донжона с конусами, ворота с решёткой и мостом, донжон выше стен, двор', () => {
+test('замок: четыре открытые угловые башни без крыш, донжон с зубцами по всему периметру, ворота с решёткой и мостом, донжон выше стен, двор', () => {
   const b = BUILDINGS.find(p => p.name === 'castle');
   assert.equal(b.maxTriangles, 4000);
-  const cones = b.parts.filter(p => p.n === 8 && p.color === 'team' && p.r[1] < 0.1);
-  assert.equal(cones.length, 4, 'конусы только у четырёх башенок донжона');
-  assert.ok(cones.every(p => Math.abs(p.c[0]) < 3 && Math.abs(p.c[2] + 1.9) < 3), 'на угловых башнях крыш нет');
+  assert.equal(b.parts.filter(p => p.n === 8 && p.color === 'team' && p.r[1] < 0.1).length, 0, 'конусов нет ни на башнях, ни на донжоне');
+  const roof = b.parts.filter(p => p.s && p.color === 'stone' && Math.abs(p.c[1] - 10.65) < 1e-6 && Math.abs(p.c[0]) < 3.1 && Math.abs(p.c[2] + 1.9) < 3.1);
+  assert.equal(roof.length, 16, 'зубцы по всему периметру площадки донжона: 5 + 5 по фасаду и тылу, 3 + 3 по бокам');
+  assert.ok(!b.parts.some(p => p.n === 8 && p.color === 'gold'), 'угловых башенок на донжоне нет');
   for (const sx of [1, -1]) for (const sz of [1, -1]) {
     const hatch = [[0.4, 0.4], [0.6, 0.6], [0.8, 0.8]].map(([u, v]) => [sx * 6.2 + sx * u, sz * 5.2 - sz * v]);
     assertOpenDeck(b, 6.66, hatch);
