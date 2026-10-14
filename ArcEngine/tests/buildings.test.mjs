@@ -366,12 +366,12 @@ test('орочьи укрепления: три яруса по четыре м�
   assert.ok(by('orc-stone-gate').parts.filter(p => p.n === 4 && p.color === 'bone').length >= 5, 'клыки в пасти арки');
 });
 
-const ORC_BUILDINGS = ['orc-hut', 'orc-barracks', 'orc-fortress', 'orc-smithy', 'orc-sawmill', 'orc-troll-lair'];
+const ORC_BUILDINGS = ['orc-hut', 'orc-barracks', 'orc-fortress', 'orc-smithy', 'orc-sawmill', 'orc-troll-lair', 'orc-siege-workshop'];
 
 test('орочьи здания: в папке зданий, палитра орочьих укреплений, цвет команды, кости, огонь, габариты не меньше человеческих двойников', () => {
   const by = n => BUILDINGS.find(b => b.name === n);
   const wall = by('orc-stone-wall-segment');
-  const twins = { 'orc-hut': 'peasant-house', 'orc-barracks': 'barracks', 'orc-smithy': 'smithy', 'orc-sawmill': 'sawmill' };
+  const twins = { 'orc-hut': 'peasant-house', 'orc-barracks': 'barracks', 'orc-smithy': 'smithy', 'orc-sawmill': 'sawmill', 'orc-siege-workshop': 'siege-workshop' };
   for (const n of ORC_BUILDINGS) {
     const b = by(n);
     assert.ok(b && !b.folder, n);
@@ -486,4 +486,21 @@ test('логово троллей: пещера по росту тролля (2,
   const { min, max } = bounds(b);
   assert.ok(max[1] > 2.5 * mouth.s[1], 'курган выше входа в 2,5 раза и больше');
   assert.ok(max[0] - min[0] >= 14 && max[2] - min[2] >= 16, 'курган шире 14 м, глубже 16 м вместе с двором');
+});
+
+test('мастерские осадных машин: ворота шире осадной башни, во дворе колёса и высокий каркас башни, цвет команды', () => {
+  const by = n => BUILDINGS.find(b => b.name === n);
+  // The gate width: the timber lintel of the human hall is 0.6 m wider than its opening; the orc gate is a slit panel.
+  const gateWidth = {
+    'siege-workshop': by('siege-workshop').parts.find(p => p.color === 'timber' && p.s && p.s[1] === 0.3 && p.s[0] > 3.5).s[0] - 0.6,
+    'orc-siege-workshop': by('orc-siege-workshop').parts.find(p => p.color === 'slit' && p.s && p.s[1] === 2.5 && p.s[2] < 0.1).s[0],
+  };
+  for (const [n, towerWidth] of [['siege-workshop', 2.38], ['orc-siege-workshop', 2.58]]) {
+    const b = by(n), { min, max } = bounds(b);
+    assert.ok(gateWidth[n] >= towerWidth + 0.4, n + ': ворота шире башни');
+    assert.ok(max[0] - min[0] >= 14, n + ': зал и два двора по X');
+    assert.ok(b.parts.some(p => p.color === 'team') && b.parts.some(p => p.color === 'teamDark'), n + ': цвет команды');
+    assert.ok(b.parts.filter(p => p.n === 8 && p.h <= 0.2 && p.r[0] >= 0.38).length >= 4, n + ': колёса машин');
+    assert.ok(b.parts.some(p => (p.s ? p.s[1] : p.h) >= 4.4 && !p.q) || b.parts.some(p => p.n === 6 && p.h >= 4.4), n + ': высокие стойки каркаса башни');
+  }
 });
