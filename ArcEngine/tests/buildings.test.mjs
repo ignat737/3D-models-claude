@@ -506,11 +506,11 @@ test('мастерские осадных машин: двор перед вор
     'orc-siege-workshop': by('orc-siege-workshop').parts.find(p => p.color === 'slit' && p.s && p.s[1] === 2.5 && p.s[2] < 0.1).s[0],
   };
   // [tower width, yard half-width, hall front z, yard depth]
-  for (const [n, towerWidth, yardHalf] of [['siege-workshop', 2.38, 6], ['orc-siege-workshop', 2.58, 6.5]]) {
+  for (const [n, towerWidth, yardHalf] of [['siege-workshop', 2.38, 6.15], ['orc-siege-workshop', 2.58, 6.4]]) {
     const b = by(n), { min, max } = bounds(b), frontZ = 3, depth = 7.4;
     assert.ok(gateWidth[n] >= towerWidth + 0.4, n + ': ворота шире башни');
     assert.ok(max[2] >= frontZ + depth - 0.2 && max[2] <= frontZ + depth + 0.6, n + ': двор глубиной 7,4 м перед фасадом');
-    assert.ok(max[0] - min[0] >= 2 * yardHalf - 0.1 && max[0] - min[0] <= 2 * yardHalf + 1.6, n + ': двор по ширине зала и двора, без пристроек сбоку');
+    assert.ok(max[0] - min[0] >= 2 * yardHalf - 0.1 && max[0] - min[0] <= 2 * yardHalf + 1.0, n + ': без пристроек сбоку');
     // The fence: posts all round the yard, a gap of at least the tower width in the front run.
     const post = p => p.s && Math.abs(p.s[0] - p.s[2]) < 1e-6 && p.s[1] > 1 && p.s[1] < 2.6 && p.c[2] > frontZ + depth - 0.01 && p.c[2] < frontZ + depth + 0.01;
     const front = b.parts.filter(post).map(p => p.c[0]).sort((x, y) => x - y);
@@ -518,6 +518,10 @@ test('мастерские осадных машин: двор перед вор
     for (let i = 1; i < front.length; i++) gap = Math.max(gap, front[i] - front[i - 1]);
     assert.ok(gap >= towerWidth + 0.4, n + ': проезд в заборе шире башни');
     assert.ok(b.parts.filter(p => p.s && p.s[1] >= 1 && p.s[1] <= 2.6 && Math.abs(p.s[0] - p.s[2]) < 1e-6 && p.c[2] > frontZ + 0.5 && Math.abs(Math.abs(p.c[0]) - yardHalf) < 0.4).length >= 6, n + ': боковые заборы');
+    // One rectangle: the footing of the hall is as wide as the yard between the outermost fence posts.
+    const footing = b.parts.filter(p => p.s && !p.q && p.s[1] <= 0.3 && p.c[1] === p.s[1] / 2 && p.c[2] === 0).sort((x, y) => y.s[0] - x.s[0])[0];
+    assert.ok(Math.abs(footing.s[0] - (front[front.length - 1] - front[0])) < 0.01, n + ': ширина зала равна ширине двора');
+    assert.ok(Math.abs(footing.s[0] / 2 - yardHalf) < 0.01, n + ': забор по контуру основания');
     // Machines stand inside the yard.
     const inYard = p => Math.abs(p.c[0]) < yardHalf && p.c[2] > frontZ + 1 && p.c[2] < frontZ + depth - 0.5;
     assert.ok(b.parts.filter(p => p.n === 8 && p.h <= 0.2 && p.r[0] >= 0.38 && inYard(p)).length >= 4, n + ': колёса машин во дворе');
