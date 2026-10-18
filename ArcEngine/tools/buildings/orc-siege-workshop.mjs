@@ -1,17 +1,18 @@
 // orc-siege-workshop.mjs — the orc siege workshop, where ballistas and siege towers are built: a
 // hall of crooked logs under a hide roof on a rough stone base, a double gate with iron straps,
-// skulls, banners, gable horns and a pennant. In front of it a 13 x 7.4 m yard behind a fence of
+// skulls, banners, gable horns and a pennant. The hall and the 7.4 m deep yard in front of it make
+// one 12.8 x 13.5 m rectangle (footing and fence share the outline); the yard is closed by a fence of
 // crooked posts with bone-tipped spikes and two rails, a 3.6 m gap between skull-topped gate
 // posts: a ballista under construction (left), a log scaffold of a siege tower with a
 // hide-covered stage (right), a rack of bolts, a brazier, rocks and bones.
-// The orc twin of the human siege workshop: the same 8.0 x 6.0 m hall.
+// The orc twin of the human siege workshop: the same 12 x 6 m hall.
 // Static: one mesh, one palette material, no skeleton, no clips.
 // Model space: meters, feet at y = 0, origin at the centre of the hall, the gate faces +Z, the
 // ridge runs along X.
 import { DEG, PALETTE, banner, beam, box, bonePile, brazier, door, faceSpike, gableHorns, logWalls, pennant, rnd, rock, rotX, rotY, rotZ, skull, skullStake, spike } from './orc-kit.mjs';
 import { gableEnd, gableRoof } from './kit.mjs';
 
-const HX = 4.0, HZ = 3.0, FOOT = 0.25, PITCH = 35 * DEG;
+const HX = 6.0, HZ = 3.0, FOOT = 0.25, PITCH = 35 * DEG;
 const walls = logWalls({ hx: HX, hz: HZ, y0: FOOT, rows: 7, r: 0.24, seed: 3 });
 const TOP = walls.top + 0.24;
 const roof = gableRoof({
@@ -29,6 +30,8 @@ const hall = [
   ...[1, -1].flatMap(s => [
     ...banner('z', 1, HZ + 0.17, s * 2.7, TOP - 0.15, 0.9, 1.6),
     ...skull('z', 1, HZ + 0.12, s * 2.0, 1.1, 1, true),
+    ...skull('z', 1, HZ + 0.12, s * 4.6, 1.3, 1, true),
+    ...banner('z', 1, HZ + 0.17, s * 5.2, TOP - 0.15, 0.9, 1.4),
     faceSpike('z', 1, HZ + 0.1, s * 3.4, 0.9, 0.9, 0.08, 0.5),
     faceSpike('z', 1, HZ + 0.1, s * 3.4, 1.6, 0.9, 0.08, 0.5),
   ]),
@@ -36,7 +39,7 @@ const hall = [
 
 // A ballista under construction at (CX, CZ): a stock on two disc wheels, a slider with a bolt, two
 // bow arms and a bowstring, still bare timber.
-const CX = -3.6, CZ = HZ + 3.6;
+const CX = -3.8, CZ = HZ + 3.6;
 const ballista = [
   box([CX, 0.95, CZ], [0.3, 0.26, 3.2], 'wood'),
   box([CX, 1.15, CZ], [0.12, 0.14, 3.0], 'woodLight'),
@@ -69,7 +72,7 @@ const rack = [
 ];
 
 // The siege-tower scaffold: crooked log posts, rails, a ladder, a hide-covered stage, spikes on top.
-const SX = 3.6, SZ = HZ + 3.7, SW = 1.0, SD = 1.3, SH = 4.6;
+const SX = 4.2, SZ = HZ + 3.7, SW = 1.0, SD = 1.3, SH = 4.6;
 const scaffold = [
   ...[1, -1].flatMap(sx => [1, -1].map((sz, i) => ({ c: [SX + sx * SW, SH / 2 + 0.03, SZ + sz * SD], h: SH, r: [0.14, 0.17], n: 6, q: rotZ(sx * (i + 1) * 0.8 * DEG), pivot: [SX + sx * SW, 0, SZ + sz * SD], color: i ? 'wood' : 'woodLight' }))),
   ...[1.1, 2.4, 3.7].flatMap(y => [
@@ -91,7 +94,7 @@ const scaffold = [
 
 // The yard fence: crooked posts every <= 1.3 m, bone-tipped, two rails of dark logs; the gate
 // posts are taller and carry a skull and a team rag.
-const YW = 6.5, ZF = HZ + 7.4, GAP = 1.8;
+const YW = HX + 0.4, ZF = HZ + 7.4, GAP = 1.8;
 const yardFence = (() => {
   const posts = new Map(), rails = [];
   const run = ([x0, z0], [x1, z1]) => {
@@ -105,7 +108,6 @@ const yardFence = (() => {
   };
   run([-YW, ZF], [-GAP, ZF]); run([GAP, ZF], [YW, ZF]);
   run([-YW, HZ], [-YW, ZF]); run([YW, HZ], [YW, ZF]);
-  run([-YW, HZ], [-HX - 0.4, HZ]); run([HX + 0.4, HZ], [YW, HZ]);
   const parts = [...posts.values()].flatMap(([x, z], i) => {
     const gate = Math.abs(Math.abs(x) - GAP) < 0.01 && z === ZF, h = gate ? 2.4 : 1.4 + 0.3 * rnd(i, 4);
     const lean = (rnd(i, 6) - 0.5) * 5 * DEG, pivot = [x, 0.02, z];
@@ -123,8 +125,8 @@ const yardFence = (() => {
 
 const PARTS = [
   ...hall, ...roof.parts, gable(1), gable(-1),
-  ...gableHorns(HX + 0.65, roof.ridge - 0.12, 1),
-  ...gableHorns(-HX - 0.65, roof.ridge - 0.12, -1),
+  ...gableHorns(HX - 0.5, roof.ridge - 0.12, 1),
+  ...gableHorns(-HX + 0.5, roof.ridge - 0.12, -1),
   ...pennant(-HX + 0.4, roof.ridge, 0, 1.5),
   ...yardFence, ...ballista, ...rack, ...scaffold,
   ...brazier(2.4, 0.7, HZ + 1.0),
@@ -136,5 +138,5 @@ const PARTS = [
 
 export default {
   name: 'orc-siege-workshop', static: true, joints: [], palette: PALETTE, parts: PARTS, clips: [], maxTriangles: 4000,
-  preview: '25,90,155', previewGap: 640, previewZoom: 0.95, withAt: [1.0, 6.0],
+  preview: '25,90,155', previewGap: 1000, previewZoom: 1.1, withAt: [1.0, 6.0],
 };
