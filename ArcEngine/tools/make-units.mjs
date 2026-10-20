@@ -10,12 +10,14 @@ import path from 'node:path';
 import url from 'node:url';
 import { IK_MISSES, buildGlb, buildMesh } from './unit-glb.mjs';
 import archer from './units/archer.mjs';
+import batteringRam from './units/battering-ram.mjs';
 import catapult from './units/catapult.mjs';
 import goblin from './units/goblin.mjs';
 import goblinWolfRider from './units/goblin-wolf-rider.mjs';
 import horse from './units/horse.mjs';
 import mountedSwordsman from './units/mounted-swordsman.mjs';
 import orc from './units/orc.mjs';
+import orcBatteringRam from './units/orc-battering-ram.mjs';
 import orcBallista from './units/orc-ballista.mjs';
 import orcSiegeTower from './units/orc-siege-tower.mjs';
 import siegeTower from './units/siege-tower.mjs';
@@ -28,7 +30,7 @@ import wolf from './units/wolf.mjs';
 
 const ROOT = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), '..');
 const OUT_DIR = path.join(ROOT, '3D-models', '3D-models-units');
-const UNITS = [swordsman, archer, spearman, orc, goblin, troll, horse, mountedSwordsman, wolf, goblinWolfRider, worker, orcWorker, catapult, siegeTower, orcBallista, orcSiegeTower];
+const UNITS = [swordsman, archer, spearman, orc, goblin, troll, horse, mountedSwordsman, wolf, goblinWolfRider, worker, orcWorker, catapult, siegeTower, orcBallista, orcSiegeTower, batteringRam, orcBatteringRam];
 const outOf = unit => path.join(OUT_DIR, unit.name + '.glb');
 
 export { UNITS, OUT_DIR, outOf, buildGlb, buildMesh, IK_MISSES };

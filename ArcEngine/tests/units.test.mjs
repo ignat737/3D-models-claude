@@ -13,6 +13,8 @@ import { HAND } from '../tools/units/humanoid.mjs';
 import { DEBRIS_JOINTS, lowest as catapultLowest } from '../tools/units/catapult.mjs';
 import * as humanTower from '../tools/units/siege-tower.mjs';
 import * as orcTower from '../tools/units/orc-siege-tower.mjs';
+import * as humanRam from '../tools/units/battering-ram.mjs';
+import * as orcRam from '../tools/units/orc-battering-ram.mjs';
 import { DEBRIS_JOINTS as BALLISTA_DEBRIS, lowest as ballistaLowest } from '../tools/units/orc-ballista.mjs';
 import { clashes, sampledPose } from './unit-collision.mjs';
 
@@ -803,4 +805,54 @@ test(name + ': осадная башня: мост опускается на 90�
   const name = p => unit.joints[p.joint].name;
   assert.deepEqual(clashes(unit, ['idle', 'run', 'attack'], p => name(p) === 'bridge', p => name(p) !== 'bridge'), []);
 });
+}
+
+// Battering rams: a covered frame with a hanging log; `attack` draws the log back and swings it into the wall.
+for (const [name, { DEBRIS_JOINTS: RAM_DEBRIS, HIT_TIME, lowest: ramLowest }] of [['battering-ram', humanRam], ['orc-battering-ram', orcRam]]) {
+  const ramUnit = () => UNITS.find(u => u.name === name);
+
+  test(name + ': клипы idle, run, attack, death; колёса на земле, в беге колесо делает один оборот за цикл', () => {
+    const unit = ramUnit();
+    assert.deepEqual(unit.clips.map(c => c.name), ['idle', 'run', 'attack', 'death']);
+    assert.deepEqual(unit.clips.map(c => c.loop), [true, true, true, false]);
+    for (const clip of unit.clips.filter(c => c.name !== 'death')) {
+      for (let f = 0; f < clip.times.length; f++) {
+        const low = ramLowest(poseAt(clip, f));
+        if (clip.name === 'attack') assert.ok(low > -1e-6, `attack кадр ${f}: под землёй на ${low}`);
+        else assert.ok(Math.abs(low) < 1e-6, `${clip.name} кадр ${f}: колёса ${(low * 100).toFixed(2)} см от земли`);
+      }
+    }
+    const run = unit.clips.find(c => c.name === 'run'), wheel = run.tracks.get('wheelFL.rotation');
+    assert.ok(Math.abs(Math.abs(wheel[(wheel.length - 1) / 2][0]) - 1) < 1e-9, 'полцикла — пол-оборота');
+    for (const w of ['wheelFR', 'wheelHL', 'wheelHR']) assert.deepEqual(run.tracks.get(w + '.rotation'), wheel, w);
+  });
+
+  test(name + ': бревно отводится назад, бьёт вперёд в кадре удара быстрее, чем отводилось, и возвращается; не задевает раму ни в кадрах, ни между ними', () => {
+    const unit = ramUnit(), clip = unit.clips.find(c => c.name === 'attack'), track = clip.tracks.get('hangF.rotation');
+    const angle = f => 2 * Math.atan2(track[f][0], track[f][3]) * 180 / Math.PI;   // hangers: + back, - forward
+    const hit = Math.round(HIT_TIME / clip.times.at(-1) * (clip.times.length - 1));
+    assert.ok(Math.abs(angle(0)) < 1e-6 && Math.abs(angle(track.length - 1)) < 1e-6, 'цикл начинается и кончается с бревном на месте');
+    const back = Math.max(...track.map((_, f) => angle(f))), front = angle(hit);
+    assert.ok(back > 20 && front < -20, `размах: назад ${back.toFixed(1)}°, вперёд ${front.toFixed(1)}°`);
+    assert.ok(Math.abs(angle(hit) - Math.min(...track.map((_, f) => angle(f)))) < 1e-6, 'самая дальняя точка вперёд — в кадре удара');
+    const drawn = track.findIndex((_, f) => angle(f) > back - 1e-6);
+    assert.ok(hit - drawn < drawn, 'удар короче замаха');
+    const swung = p => ['log', 'hangF', 'hangR'].includes(unit.joints[p.joint].name);
+    assert.deepEqual(clashes(unit, ['idle', 'run', 'attack'], swung, p => !swung(p) && !unit.joints[p.joint].name.startsWith('wheel') && !['pole', 'flag'].includes(unit.joints[p.joint].name)), []);
+  });
+
+  test(name + ': разрушение — ни один кадр не под землёй, рама легла углом на землю, обломки лежат на земле в стороне', () => {
+    const unit = ramUnit(), { J, worldOf } = rig(unit.joints), all = unit.joints.map((_, i) => i);
+    const death = unit.clips.find(c => c.name === 'death');
+    for (let f = 0; f < death.times.length; f++) assert.ok(ramLowest(poseAt(death, f), all) > -1e-3, `death кадр ${f}: ушла под землю`);
+    const end = poseAt(death, death.times.length - 1);
+    assert.ok(Math.abs(ramLowest(end, [J.body])) < 1e-3, 'угол рамы без колеса на земле');
+    assert.ok(qrot(worldOf(end, J.body).q, [0, 1, 0])[1] < Math.cos(10 * Math.PI / 180), 'рама накренилась');
+    assert.deepEqual(RAM_DEBRIS, ['wheelFR', 'roof', 'log', 'pole']);
+    for (const piece of RAM_DEBRIS) {
+      const p = worldOf(end, J[piece]).p, tree = piece === 'pole' ? [J.pole, J.flag] : [J[piece]];
+      assert.ok(Math.abs(ramLowest(end, tree)) < 1e-3, piece + ': лежит на земле');
+      assert.ok(Math.abs(p[0]) > 1.2 || Math.abs(p[2]) > 1.9, piece + ': в стороне от рамы ' + p.map(v => v.toFixed(2)));
+    }
+  });
 }
