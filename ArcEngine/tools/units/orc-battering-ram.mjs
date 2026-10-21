@@ -4,7 +4,8 @@
 // spikes, a spiked front. The log is a whole trunk 3.6 m long, iron-banded, hung on ropes, with a
 // tusked skull for a head. Faces +Z (the glTF front, where the log hits), +X is its left. No crew.
 // Skeleton and clips come from ram-kit.mjs (like the human battering-ram.mjs): idle, run, attack (the
-// log is drawn back and swung into the wall at HIT_TIME), death.
+// log is drawn back and swung into the wall at HIT_TIME), death (the roof flies off clockwise seen from
+// the front, the front hanger tears away, the log hangs on the rear one with its nose on the ground).
 import { DEG, qmul, rotX, rotY, rotZ } from '../unit-glb.mjs';
 import { SIDES, along, spike } from './siege-kit.mjs';
 import { makeRam, ramIndex, ramJoints } from './ram-kit.mjs';
@@ -37,7 +38,9 @@ const HEAD_Z = 2.20;              // the skull's centre on the log
 const PARTS = [
   // Chassis: two rails, three cross beams, axles on blocks, thick log wheels on square iron hubs.
   ...SIDES.map(k => ({ c: [RX * k, 0.74, 0], s: [0.18, 0.26, 3.80], joint: J.body, color: 'wood' })),
-  ...[1.60, 0, -1.60].map(z => ({ c: [0, 0.74, z], s: [1.46, 0.18, 0.16], joint: J.body, color: 'woodDark' })),
+  ...[0, -1.60].map(z => ({ c: [0, 0.74, z], s: [1.46, 0.18, 0.16], joint: J.body, color: 'woodDark' })),
+  // The front beam has a gap for the log: in death it drops its nose between the rails, past the beam.
+  ...SIDES.map(k => ({ c: [0.53 * k, 0.74, 1.60], s: [0.40, 0.18, 0.16], joint: J.body, color: 'woodDark' })),
   ...[WZ, -WZ].flatMap(z => [
     { c: [0, R, z], s: [2.16, 0.10, 0.10], joint: J.body, color: 'iron' },
     ...SIDES.map(k => ({ c: [RX * k, 0.585, z], s: [0.16, 0.11, 0.16], joint: J.body, color: 'woodDark' })),
@@ -101,8 +104,8 @@ const ram = makeRam({
   name: 'orc-battering-ram', joints: JOINTS, palette: PALETTE, parts: PARTS,
   debris: {
     wheel: { at: [-0.6, 3.5], q: qmul(rotY(25 * DEG), rotZ(90 * DEG)) },
-    roof: { at: [3.2, -0.3], q: qmul(rotY(15 * DEG), rotZ(98 * DEG)) },
-    log: { at: [-3.1, 0.8], q: rotY(35 * DEG) },
+    roof: { at: [3.2, -0.3], q: qmul(rotY(-15 * DEG), rotZ(-98 * DEG)) },
+    hang: { at: [-1.9, 0.8], q: qmul(rotY(20 * DEG), rotZ(90 * DEG)) },
     pole: { at: [1.8, -3.7], q: qmul(rotY(-10 * DEG), rotZ(90 * DEG)) },
   },
   extras: {

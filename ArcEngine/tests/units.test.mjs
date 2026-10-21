@@ -848,11 +848,37 @@ for (const [name, { DEBRIS_JOINTS: RAM_DEBRIS, HIT_TIME, lowest: ramLowest }] of
     const end = poseAt(death, death.times.length - 1);
     assert.ok(Math.abs(ramLowest(end, [J.body])) < 1e-3, 'угол рамы без колеса на земле');
     assert.ok(qrot(worldOf(end, J.body).q, [0, 1, 0])[1] < Math.cos(10 * Math.PI / 180), 'рама накренилась');
-    assert.deepEqual(RAM_DEBRIS, ['wheelFR', 'roof', 'log', 'pole']);
+    assert.deepEqual(RAM_DEBRIS, ['wheelFR', 'roof', 'hangF', 'pole']);
     for (const piece of RAM_DEBRIS) {
       const p = worldOf(end, J[piece]).p, tree = piece === 'pole' ? [J.pole, J.flag] : [J[piece]];
       assert.ok(Math.abs(ramLowest(end, tree)) < 1e-3, piece + ': лежит на земле');
       assert.ok(Math.abs(p[0]) > 1.2 || Math.abs(p[2]) > 1.9, piece + ': в стороне от рамы ' + p.map(v => v.toFixed(2)));
     }
+  });
+
+  test(name + ': разрушение — крыша падает по часовой стрелке (вид спереди); ствол висит на заднем подвесе и касается земли только носом, передний подвес оторван', () => {
+    const unit = ramUnit(), { J, worldOf } = rig(unit.joints), death = unit.clips.find(c => c.name === 'death');
+    const frames = death.times.map((_, f) => poseAt(death, f)), end = frames.at(-1);
+    // Seen from the front (+Z) +X is on the right: the roof's up vector turns from +Y toward +X.
+    const roll = frames.map((p) => { const up = qrot(worldOf(p, J.roof).q, [0, 1, 0]); return Math.atan2(up[0], up[1]) * 180 / Math.PI; });
+    for (let f = 10; f < roll.length; f++) assert.ok(roll[f] >= roll[f - 1] - 0.01, `кадр ${f}: крыша крутится против часовой (${roll[f - 1].toFixed(2)} -> ${roll[f].toFixed(2)})`);
+    assert.ok(roll.at(-1) > 60, 'крыша легла набок вправо: ' + roll.at(-1).toFixed(1));
+    // The log: the rear hanger is never torn off and holds the log's rear station in every frame.
+    assert.ok(!death.tracks.has('hangR.translation'), 'задний подвес остаётся на раме');
+    const hangZ = unit.joints[J.hangR].at[2] - unit.joints[J.log].at[2], drop = unit.joints[J.hangR].at[1] - unit.joints[J.log].at[1];
+    for (let f = 0; f < frames.length; f++) {
+      const log = worldOf(frames[f], J.log), hang = worldOf(frames[f], J.hangR);
+      const a = add(log.p, qrot(log.q, [0, 0, hangZ])), b = add(hang.p, qrot(hang.q, [0, -drop, 0]));
+      assert.ok(Math.hypot(...sub(a, b)) < 1e-6, `кадр ${f}: ствол оторвался от заднего подвеса`);
+    }
+    // In the end only the front tip is on the ground: the nose points down, the rear end hangs high.
+    const log = worldOf(end, J.log), nose = qrot(log.q, [0, 0, 1]), rear = add(log.p, qrot(log.q, [0, 0, -1.2]));
+    assert.ok(Math.abs(ramLowest(end, [J.log])) < 1e-3, 'нос ствола на земле');
+    assert.ok(nose[1] < -Math.sin(15 * Math.PI / 180), 'ствол смотрит носом вниз: ' + nose.map(v => v.toFixed(2)));
+    assert.ok(rear[1] > 0.7, 'задняя часть ствола висит: y = ' + rear[1].toFixed(2));
+    assert.ok(ramLowest(end, [J.hangR]) > 0.5, 'задний подвес висит на раме');
+    // The log never goes through the frame while it drops.
+    const swung = p => unit.joints[p.joint].name === 'log', body = p => unit.joints[p.joint].name === 'body';
+    assert.deepEqual(clashes(unit, ['death'], swung, body), []);
   });
 }
