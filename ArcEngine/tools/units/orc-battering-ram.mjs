@@ -14,7 +14,7 @@ const R = 0.46, WX = 1.04, WZ = 1.15;
 const RX = 0.82;                  // rails and posts
 const HANG = [0.70, -0.60];       // z of the two hanger stations
 const PIVOT_Y = 2.55, LOG_Y = 1.30;
-const JOINTS = ramJoints({ R, WX, WZ, pivotY: PIVOT_Y, logY: LOG_Y, hang: HANG, roofY: 2.40, pole: [0.82, 0.80, -1.85], flagY: 3.50 });
+const JOINTS = ramJoints({ R, WX, WZ, pivotY: PIVOT_Y, logY: LOG_Y, hang: HANG, beam: { x: 0.365, y: 0.74, z: 1.60 }, roofY: 2.40, pole: [0.82, 0.80, -1.85], flagY: 3.50 });
 const J = ramIndex(JOINTS);
 
 // The orc wood, bone and iron of orc-ballista.mjs; "team" and "teamDark" as everywhere.
@@ -39,8 +39,11 @@ const PARTS = [
   // Chassis: two rails, three cross beams, axles on blocks, thick log wheels on square iron hubs.
   ...SIDES.map(k => ({ c: [RX * k, 0.74, 0], s: [0.18, 0.26, 3.80], joint: J.body, color: 'wood' })),
   ...[0, -1.60].map(z => ({ c: [0, 0.74, z], s: [1.46, 0.18, 0.16], joint: J.body, color: 'woodDark' })),
-  // The front beam has a gap for the log: in death it drops its nose between the rails, past the beam.
-  ...SIDES.map(k => ({ c: [0.53 * k, 0.74, 1.60], s: [0.40, 0.18, 0.16], joint: J.body, color: 'woodDark' })),
+  // The front cross beam is two halves joined by an iron collar split in two; the log falls on it in death.
+  ...SIDES.flatMap(k => [
+    { c: [0.365 * k, 0.74, 1.60], s: [0.73, 0.18, 0.16], joint: k > 0 ? J.beamL : J.beamR, color: 'woodDark' },
+    { c: [0.12 * k, 0.74, 1.60], s: [0.24, 0.24, 0.22], joint: k > 0 ? J.beamL : J.beamR, color: 'iron' },
+  ]),
   ...[WZ, -WZ].flatMap(z => [
     { c: [0, R, z], s: [2.16, 0.10, 0.10], joint: J.body, color: 'iron' },
     ...SIDES.map(k => ({ c: [RX * k, 0.585, z], s: [0.16, 0.11, 0.16], joint: J.body, color: 'woodDark' })),
@@ -89,7 +92,11 @@ const PARTS = [
   spike([0, LOG_Y - 0.02, HEAD_Z + 0.24], [0, 0, 1], 0.34, 0.10, J.log, 'char'),
   ...HANG.flatMap((z, i) => [
     ...SIDES.map(k => ({ c: [0.19 * k, 1.925, z], s: [0.05, 1.25, 0.05], joint: i ? J.hangR : J.hangF, color: 'rope' })),
-    { c: [0, PIVOT_Y, z], s: [0.44, 0.06, 0.08], joint: i ? J.hangR : J.hangF, color: 'iron' },
+  ]),
+  // Each hanger pair turns on an iron axle held under the ridge beam by a stem between the two hangers.
+  ...HANG.flatMap(z => [
+    { c: [0, PIVOT_Y, z], s: [0.52, 0.06, 0.06], joint: J.body, color: 'iron', hinge: true },
+    { c: [0, PIVOT_Y + 0.06, z], s: [0.12, 0.12, 0.12], joint: J.body, color: 'iron' },
   ]),
   // Banner on a skull pole at the rear-left corner: a bone bar with hide strips.
   { c: [0.82, 2.30, -1.85], s: [0.07, 3.00, 0.07], joint: J.pole, color: 'woodDark' },
@@ -105,9 +112,11 @@ const ram = makeRam({
   debris: {
     wheel: { at: [-0.6, 3.5], q: qmul(rotY(25 * DEG), rotZ(90 * DEG)) },
     roof: { at: [3.2, -0.3], q: qmul(rotY(-15 * DEG), rotZ(-98 * DEG)) },
-    hang: { at: [-1.9, 0.8], q: qmul(rotY(20 * DEG), rotZ(90 * DEG)) },
+    beamL: { at: [1.6, 2.2], q: rotY(25 * DEG) },
+    beamR: { at: [-1.6, 2.4], q: rotY(-20 * DEG) },
     pole: { at: [1.8, -3.7], q: qmul(rotY(-10 * DEG), rotZ(90 * DEG)) },
   },
+  beam: { top: 0.86, z: 1.60, halfZ: 0.11 },
   extras: {
     maxTriangles: 1400,
     preview: 'idle@0.6,attack@0.8,attack@1.5,run@0.4,death@2.4',

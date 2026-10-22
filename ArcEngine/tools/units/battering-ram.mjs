@@ -11,10 +11,10 @@ import { SIDES, along, beam, spike } from './siege-kit.mjs';
 import { makeRam, ramIndex, ramJoints } from './ram-kit.mjs';
 
 const R = 0.40, WX = 0.92, WZ = 1.05;
-const PIVOT_Y = 2.40;             // the hangers' top bar, just under the ridge beam
+const PIVOT_Y = 2.40;             // the hangers' axles, just under the ridge beam
 const RX = 0.72, PX = 0.72;       // rails and posts
 const HANG = [0.65, -0.55];       // z of the two hanger stations
-const JOINTS = ramJoints({ R, WX, WZ, pivotY: PIVOT_Y, logY: 1.25, hang: HANG, roofY: 2.20, pole: [0.72, 0.78, -1.62], flagY: 3.25 });
+const JOINTS = ramJoints({ R, WX, WZ, pivotY: PIVOT_Y, logY: 1.25, hang: HANG, beam: { x: 0.32, y: 0.70, z: 1.45 }, roofY: 2.20, pole: [0.72, 0.78, -1.62], flagY: 3.25 });
 const J = ramIndex(JOINTS);
 
 const PALETTE = [
@@ -34,8 +34,11 @@ const PARTS = [
   // Chassis: two rails, three cross beams, axles on blocks, solid wheels with iron hubs.
   ...SIDES.map(k => ({ c: [RX * k, 0.70, 0], s: [0.16, 0.22, 3.40], joint: J.body, color: 'wood' })),
   ...[0, -1.45].map(z => ({ c: [0, 0.70, z], s: [1.28, 0.16, 0.14], joint: J.body, color: 'woodDark' })),
-  // The front beam has a gap for the log: in death it drops its nose between the rails, past the beam.
-  ...SIDES.map(k => ({ c: [0.47 * k, 0.70, 1.45], s: [0.34, 0.16, 0.14], joint: J.body, color: 'woodDark' })),
+  // The front cross beam is two halves joined by an iron collar split in two; the log falls on it in death.
+  ...SIDES.flatMap(k => [
+    { c: [0.32 * k, 0.70, 1.45], s: [0.64, 0.16, 0.14], joint: k > 0 ? J.beamL : J.beamR, color: 'woodDark' },
+    { c: [0.11 * k, 0.70, 1.45], s: [0.22, 0.20, 0.18], joint: k > 0 ? J.beamL : J.beamR, color: 'iron' },
+  ]),
   ...[WZ, -WZ].flatMap(z => [
     { c: [0, R, z], s: [1.96, 0.09, 0.09], joint: J.body, color: 'iron' },
     ...SIDES.map(k => ({ c: [RX * k, 0.525, z], s: [0.14, 0.105, 0.14], joint: J.body, color: 'woodDark' })),
@@ -69,7 +72,11 @@ const PARTS = [
   spike([0, 1.25, 1.88], [0, 0, 1], 0.34, 0.19, J.log, 'iron'),
   ...HANG.flatMap((z, i) => [
     ...SIDES.map(k => ({ c: [0.17 * k, 1.90, z], s: [0.05, 1.00, 0.05], joint: i ? J.hangR : J.hangF, color: 'iron' })),
-    { c: [0, 2.40, z], s: [0.40, 0.06, 0.08], joint: i ? J.hangR : J.hangF, color: 'iron' },
+  ]),
+  // Each hanger pair turns on an iron axle held under the ridge beam by a stem between the two hangers.
+  ...HANG.flatMap(z => [
+    { c: [0, PIVOT_Y, z], s: [0.50, 0.05, 0.05], joint: J.body, color: 'iron', hinge: true },
+    { c: [0, PIVOT_Y + 0.05, z], s: [0.10, 0.10, 0.10], joint: J.body, color: 'iron' },
   ]),
   // Pennant on a pole at the rear-left corner.
   { c: [0.72, 2.14, -1.62], s: [0.05, 2.72, 0.05], joint: J.pole, color: 'woodDark' },
@@ -83,9 +90,11 @@ const ram = makeRam({
   debris: {
     wheel: { at: [-0.5, 3.0], q: qmul(rotY(25 * DEG), rotZ(90 * DEG)) },
     roof: { at: [2.8, -0.3], q: qmul(rotY(-15 * DEG), rotZ(-98 * DEG)) },
-    hang: { at: [-1.6, 0.7], q: qmul(rotY(20 * DEG), rotZ(90 * DEG)) },
+    beamL: { at: [1.45, 1.9], q: rotY(25 * DEG) },
+    beamR: { at: [-1.45, 2.1], q: rotY(-20 * DEG) },
     pole: { at: [1.5, -3.2], q: qmul(rotY(-10 * DEG), rotZ(90 * DEG)) },
   },
+  beam: { top: 0.80, z: 1.45, halfZ: 0.09 },
   extras: {
     preview: 'idle@0.6,attack@0.8,attack@1.5,run@0.4,death@2.4',
     previewGap: 150, previewZoom: 1.3, previewHeading: 70,
