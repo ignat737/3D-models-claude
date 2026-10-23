@@ -838,7 +838,7 @@ for (const [name, { DEBRIS_JOINTS: RAM_DEBRIS, HIT_TIME, lowest: ramLowest }] of
     const drawn = track.findIndex((_, f) => angle(f) > back - 1e-6);
     assert.ok(hit - drawn < drawn, 'удар короче замаха');
     const swung = p => ['log', 'hangF', 'hangR'].includes(unit.joints[p.joint].name);
-    assert.deepEqual(clashes(unit, ['idle', 'run', 'attack'], swung, p => !swung(p) && !unit.joints[p.joint].name.startsWith('wheel') && !['pole', 'flag'].includes(unit.joints[p.joint].name)), []);
+    assert.deepEqual(clashes(unit, ['idle', 'run', 'attack'], swung, p => !swung(p) && !unit.joints[p.joint].name.startsWith('wheel') && !['pole', 'flag'].includes(unit.joints[p.joint].name) && !p.hinge), []);
   });
 
   test(name + ': разрушение — ни один кадр не под землёй, рама легла углом на землю, обломки лежат на земле в стороне', () => {
@@ -848,7 +848,7 @@ for (const [name, { DEBRIS_JOINTS: RAM_DEBRIS, HIT_TIME, lowest: ramLowest }] of
     const end = poseAt(death, death.times.length - 1);
     assert.ok(Math.abs(ramLowest(end, [J.body])) < 1e-3, 'угол рамы без колеса на земле');
     assert.ok(qrot(worldOf(end, J.body).q, [0, 1, 0])[1] < Math.cos(10 * Math.PI / 180), 'рама накренилась');
-    assert.deepEqual(RAM_DEBRIS, ['wheelFR', 'roof', 'hangF', 'pole']);
+    assert.deepEqual(RAM_DEBRIS, ['wheelFR', 'roof', 'beamL', 'beamR', 'pole']);
     for (const piece of RAM_DEBRIS) {
       const p = worldOf(end, J[piece]).p, tree = piece === 'pole' ? [J.pole, J.flag] : [J[piece]];
       assert.ok(Math.abs(ramLowest(end, tree)) < 1e-3, piece + ': лежит на земле');
@@ -856,29 +856,46 @@ for (const [name, { DEBRIS_JOINTS: RAM_DEBRIS, HIT_TIME, lowest: ramLowest }] of
     }
   });
 
-  test(name + ': разрушение — крыша падает по часовой стрелке (вид спереди); ствол висит на заднем подвесе и касается земли только носом, передний подвес оторван', () => {
+  test(name + ': разрушение — крыша падает по часовой стрелке (вид спереди); ствол обрывается у переднего подвеса и висит на заднем, подвес остаётся на балке', () => {
     const unit = ramUnit(), { J, worldOf } = rig(unit.joints), death = unit.clips.find(c => c.name === 'death');
     const frames = death.times.map((_, f) => poseAt(death, f)), end = frames.at(-1);
     // Seen from the front (+Z) +X is on the right: the roof's up vector turns from +Y toward +X.
     const roll = frames.map((p) => { const up = qrot(worldOf(p, J.roof).q, [0, 1, 0]); return Math.atan2(up[0], up[1]) * 180 / Math.PI; });
     for (let f = 10; f < roll.length; f++) assert.ok(roll[f] >= roll[f - 1] - 0.01, `кадр ${f}: крыша крутится против часовой (${roll[f - 1].toFixed(2)} -> ${roll[f].toFixed(2)})`);
     assert.ok(roll.at(-1) > 60, 'крыша легла набок вправо: ' + roll.at(-1).toFixed(1));
-    // The log: the rear hanger is never torn off and holds the log's rear station in every frame.
-    assert.ok(!death.tracks.has('hangR.translation'), 'задний подвес остаётся на раме');
+    // Both hangers stay on the frame (no translation track): the log is torn loose from the front one
+    // only and keeps its rear station on the rear hanger's lower end in every frame.
+    for (const hanger of ['hangF', 'hangR']) assert.ok(!death.tracks.has(hanger + '.translation'), hanger + ' остаётся на оси балки');
     const hangZ = unit.joints[J.hangR].at[2] - unit.joints[J.log].at[2], drop = unit.joints[J.hangR].at[1] - unit.joints[J.log].at[1];
     for (let f = 0; f < frames.length; f++) {
       const log = worldOf(frames[f], J.log), hang = worldOf(frames[f], J.hangR);
       const a = add(log.p, qrot(log.q, [0, 0, hangZ])), b = add(hang.p, qrot(hang.q, [0, -drop, 0]));
       assert.ok(Math.hypot(...sub(a, b)) < 1e-6, `кадр ${f}: ствол оторвался от заднего подвеса`);
     }
+    const front = unit.joints[J.hangF].at, logAt = unit.joints[J.log].at;
+    const tearFrame = frames.findIndex((p, f) => {
+      const log = worldOf(p, J.log), hang = worldOf(p, J.hangF);
+      return Math.hypot(...sub(add(log.p, qrot(log.q, [0, 0, front[2] - logAt[2]])), add(hang.p, qrot(hang.q, [0, -drop, 0])))) > 0.02;
+    });
+    assert.ok(tearFrame > 5 && tearFrame < 25, 'ствол отрывается от переднего подвеса, пока рама ещё трясётся: кадр ' + tearFrame);
+    assert.ok(ramLowest(end, [J.hangF]) > 0.5 && ramLowest(end, [J.hangR]) > 0.5, 'оба подвеса висят на балке');
     // In the end only the front tip is on the ground: the nose points down, the rear end hangs high.
     const log = worldOf(end, J.log), nose = qrot(log.q, [0, 0, 1]), rear = add(log.p, qrot(log.q, [0, 0, -1.2]));
     assert.ok(Math.abs(ramLowest(end, [J.log])) < 1e-3, 'нос ствола на земле');
     assert.ok(nose[1] < -Math.sin(15 * Math.PI / 180), 'ствол смотрит носом вниз: ' + nose.map(v => v.toFixed(2)));
     assert.ok(rear[1] > 0.7, 'задняя часть ствола висит: y = ' + rear[1].toFixed(2));
-    assert.ok(ramLowest(end, [J.hangR]) > 0.5, 'задний подвес висит на раме');
-    // The log never goes through the frame while it drops.
-    const swung = p => unit.joints[p.joint].name === 'log', body = p => unit.joints[p.joint].name === 'body';
-    assert.deepEqual(clashes(unit, ['death'], swung, body), []);
+    // The front cross beam: two halves that touch at the start; they split when the log lands on them
+    // (the log is still in the air then) and lie apart on the ground at the end.
+    const name = p => unit.joints[p.joint].name;
+    const dist = p => Math.hypot(...sub(worldOf(p, J.beamL).p, worldOf(p, J.beamR).p));
+    const bind = unit.joints[J.beamL].at[0] * 2;
+    assert.ok(Math.abs(dist(frames[0]) - bind) < 1e-6, 'в начале половины перекладины сомкнуты');
+    const split = frames.findIndex(p => Math.abs(dist(p) - bind) > 0.02);
+    assert.ok(split > tearFrame, 'перекладина ломается уже после обрыва подвеса: кадр ' + split);
+    assert.ok(ramLowest(frames[split], [J.log]) > 0.1, 'в момент удара нос ствола ещё в воздухе');
+    assert.ok(dist(end) > 2.5, 'половины лежат врозь: ' + dist(end).toFixed(2));
+    for (const half of [J.beamL, J.beamR]) assert.ok(Math.abs(ramLowest(end, [half])) < 1e-3, 'половина перекладины лежит на земле');
+    // The log never goes through the frame or the beam halves, in the frames or between them.
+    assert.deepEqual(clashes(unit, ['death'], p => name(p) === 'log', p => ['body', 'beamL', 'beamR'].includes(name(p))), []);
   });
 }
