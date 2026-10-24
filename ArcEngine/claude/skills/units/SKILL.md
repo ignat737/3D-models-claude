@@ -181,7 +181,7 @@ A ranged unit keeps the names (`attack` = draw and release) so game code stays t
 - A shield strapped to the forearm is pierced by the fist when the arm is raised: hold it by a
   centre grip, disc just in front of the fist, the boss covering the hand.
 - Coplanar faces z-fight: a decal (cross, stripe) sits >= 0.006 m above its surface.
-- `buildMesh` (`tools/unit-glb.mjs`, `separateCoplanar`) also sinks the larger of two flush faces of different colours 3 cm behind the smaller one, so leftover coplanar faces do not flicker in viewers; keep authoring decals proud anyway — parts too thin to sink (< 8 cm) keep their small offset.
+- For static models (buildings, defense, plants) `buildMesh` (`tools/unit-glb.mjs`, `separateCoplanar`) also sinks the larger of two flush faces of different colours 3 cm behind the smaller one, so leftover coplanar faces do not flicker in viewers; skinned units are NOT touched (it distorted them); keep authoring decals proud anyway — parts too thin to sink (< 8 cm) keep their small offset.
 - A helmet octagon must cover the head box corners: its radius >= half the box diagonal.
 - A tabard skirt as one box is cut by running legs: split it into flaps on the thighs.
 - A textured GLB that renders too dark means sRGB buffers: `Gltf3D.load` passes
