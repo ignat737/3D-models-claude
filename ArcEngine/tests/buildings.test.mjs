@@ -529,3 +529,17 @@ test('мастерские осадных машин: двор перед вор
     assert.ok(b.parts.some(p => p.color === 'team') && b.parts.some(p => p.color === 'teamDark'), n + ': цвет команды');
   }
 });
+
+test('buildMesh: flush faces of different colours are separated (no z-fighting)', () => {
+  const base = { name: 't', static: true, joints: [], palette: [{ name: 'a', hex: '#ffffff' }, { name: 'b', hex: '#000000' }] };
+  // The wall's front face and the plank's front face both lie at z = 1.
+  const mesh = buildMesh({ ...base, parts: [
+    { c: [0, 1, 0], s: [4, 2, 2], color: 'a' },
+    { c: [0, 1, 0.9], s: [1, 1, 0.2], color: 'b' },
+  ] });
+  const frontZ = new Set();
+  for (let v = 0; v < mesh.normals.length / 3; v++) if (mesh.normals[v * 3 + 2] === 1) frontZ.add(+mesh.positions[v * 3 + 2].toFixed(4));
+  const [lo, hi] = [Math.min(...frontZ), Math.max(...frontZ)];
+  assert.ok(hi - lo >= 0.02, `front faces ${lo}..${hi} must differ by at least 2 cm`);
+  assert.ok(Math.abs(hi - 1) < 1e-6, 'the smaller part keeps its place');
+});
