@@ -210,6 +210,123 @@ function checkWinding(p, name) {
   }
 }
 
+const polyArea = p => {
+  let s = 0;
+  for (let i = 0; i < p.length; i++) { const q = p[(i + 1) % p.length]; s += p[i][0] * q[1] - q[0] * p[i][1]; }
+  return Math.abs(s) / 2;
+};
+
+// The polygon of triangle `subject` clipped by triangle `clipper` (both 2D).
+function clipTriangle(subject, clipper) {
+  const c = polyArea(clipper) && ((clipper[1][0] - clipper[0][0]) * (clipper[2][1] - clipper[0][1]) - (clipper[1][1] - clipper[0][1]) * (clipper[2][0] - clipper[0][0]) < 0) ? [clipper[0], clipper[2], clipper[1]] : clipper;
+  let poly = subject;
+  for (let e = 0; e < 3 && poly.length; e++) {
+    const a = c[e], b = c[(e + 1) % 3], side = p => (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]);
+    const input = poly;
+    poly = [];
+    for (let k = 0; k < input.length; k++) {
+      const p = input[k], q = input[(k + 1) % input.length], sp = side(p), sq = side(q);
+      if (sp >= 0) poly.push(p);
+      if ((sp >= 0) !== (sq >= 0)) poly.push([p[0] + (q[0] - p[0]) * sp / (sp - sq), p[1] + (q[1] - p[1]) * sp / (sp - sq)]);
+    }
+  }
+  return poly;
+}
+
+// Z-fighting: faces of different parts lying in (almost) one plane flicker against each other
+// (the typical case — a detail drawn flush with the surface it sits on). The part whose face is
+// larger (the base) is sunk along the normal behind the smaller one (the detail), so the detail
+// stands COVER_GAP proud. A sunk box face keeps its edges on the neighbouring faces of its box —
+// no slits; the side of a round part sinks by shrinking the whole part toward its axis.
+// Topology, triangle count and skinning stay as they were.
+const COVER_NEAR = 0.02, COVER_GAP = 0.03;
+
+function separateCoplanar(out, parts) {
+  const P = out.positions, vert = i => [P[i * 3], P[i * 3 + 1], P[i * 3 + 2]];
+  const faces = [];
+  for (const part of parts) {
+    const tris = [];
+    for (let t = part.from; t < part.to; t += 3) {
+      const ids = [0, 1, 2].map(k => out.indices[t + k]), [a, b, c] = ids.map(vert);
+      const g = cross(sub(b, a), sub(c, a)), len = Math.hypot(...g);
+      if (len > 1e-12) tris.push({ ids, n: g.map(x => x / len), group: tris.length });
+    }
+    const root = i => { while (tris[i].group !== i) i = tris[i].group; return i; };
+    for (let i = 0; i < tris.length; i++) for (let j = 0; j < i; j++) {
+      if (dot(tris[i].n, tris[j].n) > 0.9999 && tris[i].ids.some(v => tris[j].ids.includes(v))) tris[root(i)].group = root(j);
+    }
+    const groups = new Map();
+    tris.forEach((t, i) => {
+      const key = root(i);
+      if (!groups.has(key)) groups.set(key, { part, tris: [], verts: new Set() });
+      const f = groups.get(key);
+      f.tris.push(t.ids);
+      for (const v of t.ids) f.verts.add(v);
+    });
+    faces.push(...groups.values());
+  }
+  const plane = f => {
+    const [a, b, c] = f.tris[0].map(vert);
+    f.n = norm(cross(sub(b, a), sub(c, a)));
+    f.d = dot(f.n, a);
+    f.area = f.tris.reduce((s, ids) => { const [p, q, r] = ids.map(vert); return s + Math.hypot(...cross(sub(q, p), sub(r, p))) / 2; }, 0);
+  };
+  const extent = f => {
+    let lo = Infinity, hi = -Infinity;
+    for (let t = f.part.from; t < f.part.to; t++) { const d = dot(f.n, vert(out.indices[t])); lo = Math.min(lo, d); hi = Math.max(hi, d); }
+    return hi - lo;
+  };
+  // Heights of B's plane above A's plane over the area where the two faces overlap.
+  const gaps = (A, B) => {
+    const u = Math.abs(A.n[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0], e1 = norm(cross(u, A.n)), e2 = cross(A.n, e1);
+    const flat = ids => ids.map(vert).map(p => [dot(p, e1), dot(p, e2)]);
+    const res = [], cos = dot(A.n, B.n);
+    for (const ta of A.tris) for (const tb of B.tris) {
+      const poly = clipTriangle(flat(ta), flat(tb));
+      if (polyArea(poly) <= 1e-5) continue;
+      for (const [x, y] of poly) res.push((B.d - (x * dot(B.n, e1) + y * dot(B.n, e2))) / cos - A.d);
+    }
+    return res;
+  };
+  // The side of a frustum (not a cap): its part sinks as a whole.
+  const roundSide = f => {
+    const def = f.part.def;
+    return !def.s && !def.span && Math.abs(dot(f.n, def.q ? qrot(def.q, [0, 1, 0]) : [0, 1, 0])) < 0.5;
+  };
+  const sunk = new Map();   // part or face -> { left: how much deeper it may still go, a thin part must not turn inside out }
+  for (let pass = 0; pass < 10; pass++) {
+    faces.forEach(plane);
+    const push = new Map();
+    for (let i = 0; i < faces.length; i++) for (let j = i + 1; j < faces.length; j++) {
+      const A = faces[i], B = faces[j];
+      if (A.part === B.part || A.part.color === B.part.color || dot(A.n, B.n) < 0.999 || Math.abs(A.d - B.d) > 0.5) continue;
+      const g = gaps(A, B);
+      if (!g.length || Math.min(...g) >= COVER_NEAR || Math.max(...g) <= -COVER_NEAR) continue;
+      const aWins = A.area < B.area || (A.area === B.area && A.part.order > B.part.order);
+      const [lose, need] = aWins ? [B, Math.max(...g) + COVER_GAP] : [A, Math.max(...g.map(x => -x)) + COVER_GAP];
+      const key = roundSide(lose) ? lose.part : lose;
+      if (!sunk.has(key)) sunk.set(key, 0.4 * extent(lose));
+      push.set(key, Math.max(push.get(key) || 0, Math.min(need, sunk.get(key))));
+    }
+    for (const [key, by] of push) sunk.set(key, sunk.get(key) - by);
+    if (![...push.values()].some(by => by > 1e-6)) return;
+    for (const [key, by] of push) {
+      if (key.def) {
+        const def = key.def, pivot = def.pivot || def.c, axis = def.q ? qrot(def.q, [0, 1, 0]) : [0, 1, 0];
+        const center = def.q ? add(pivot, qrot(def.q, sub(def.c, pivot))) : def.c;
+        const reach = by / Math.cos(Math.PI / def.n), done = new Set();
+        for (let t = key.from; t < key.to; t++) {
+          const v = out.indices[t];
+          if (done.has(v)) continue;
+          done.add(v);
+          const rel = sub(vert(v), center), radial = sub(rel, scale3(axis, dot(rel, axis))), len = Math.hypot(...radial);
+          if (len > 1e-9) for (let k = 0; k < 3; k++) P[v * 3 + k] -= radial[k] / len * Math.min(reach, len * 0.4);
+        }
+      } else for (const v of key.verts) for (let k = 0; k < 3; k++) P[v * 3 + k] -= key.n[k] * by;
+    }
+  }
+}
+
 // Palette: the smallest square power-of-two texture that fits the colours, row by row.
 const paletteSize = count => {
   let size = 1;
@@ -221,12 +338,16 @@ export function buildMesh(unit) {
   const size = paletteSize(unit.palette.length);
   const index = Object.fromEntries(unit.palette.map((c, i) => [c.name, i]));
   const out = { positions: [], normals: [], uvs: [], joints: [], indices: [] };
+  const ranges = [];
   for (const p of unit.parts) {
+    const from = out.indices.length;
     const i = index[p.color];
     if (i === undefined) throw new Error(`${unit.name}: no palette colour "${p.color}"`);
     if (!unit.static) for (const j of p.span ? p.joints : [p.joint]) if (!(j >= 0 && j < unit.joints.length)) throw new Error(`${unit.name}: bad joint ${j}`);
     (p.span ? addSpan : p.s ? addBox : addRound)(out, p, [(i % size + 0.5) / size, (Math.floor(i / size) + 0.5) / size]);
+    ranges.push({ from, to: out.indices.length, color: i, order: ranges.length, def: p });
   }
+  separateCoplanar(out, ranges);
   checkWinding(out, unit.name);
   if (out.positions.length / 3 > 65535) throw new Error(`${unit.name}: too many vertices for 16-bit indices`);
   return out;
