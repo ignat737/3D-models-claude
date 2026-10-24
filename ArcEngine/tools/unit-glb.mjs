@@ -347,7 +347,7 @@ export function buildMesh(unit) {
     (p.span ? addSpan : p.s ? addBox : addRound)(out, p, [(i % size + 0.5) / size, (Math.floor(i / size) + 0.5) / size]);
     ranges.push({ from, to: out.indices.length, color: i, order: ranges.length, def: p });
   }
-  separateCoplanar(out, ranges);
+  if (unit.static) separateCoplanar(out, ranges);   // skinned units keep their authored geometry
   checkWinding(out, unit.name);
   if (out.positions.length / 3 > 65535) throw new Error(`${unit.name}: too many vertices for 16-bit indices`);
   return out;
