@@ -13,7 +13,7 @@ import { gableEnd, gableRoof } from './kit.mjs';
 const HX = 3.2, HZ = 2.0, POST = 3.0, PITCH = 35 * DEG;
 const roof = gableRoof({
   pitch: PITCH, halfZ: HZ + 0.2, baseY: POST + 0.14, len: 2 * HX + 1.0, over: [0.45, 0.45], thick: 0.24,
-  colors: ['hide', 'woodDark', 'bone'], courses: [1.0, 2.0],
+  colors: ['hide', 'woodDark', 'bone'],
 });
 const gable = side => gableEnd({ x: HX + 0.15, side, baseY: POST + 0.12, halfZ: HZ + 0.2, pitch: PITCH, color: 'woodDark' });
 

@@ -17,7 +17,7 @@ const walls = logWalls({ hx: HX, hz: HZ, y0: FOOT, rows: 7, r: 0.24, seed: 3 });
 const TOP = walls.top + 0.24;
 const roof = gableRoof({
   pitch: PITCH, halfZ: HZ + 0.2, baseY: TOP + 0.14, len: 2 * HX + 1.0, over: [0.55, 0.5], thick: 0.24,
-  colors: ['hide', 'woodDark', 'bone'], courses: [1.0, 2.0, 3.0],
+  colors: ['hide', 'woodDark', 'bone'],
 });
 const gable = side => gableEnd({ x: HX + 0.15, side, baseY: TOP + 0.12, halfZ: HZ + 0.2, pitch: PITCH, color: 'woodDark' });
 

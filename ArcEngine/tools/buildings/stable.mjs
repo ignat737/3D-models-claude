@@ -34,7 +34,7 @@ const STALLS = [-2.5, 0, 2.5];
 
 const roof = gableRoof({
   pitch: PITCH, halfZ: HZ + 0.1, baseY: TOP + 0.1, len: LEN + 0.7, over: [0.6, 0.45], thick: 0.38,
-  colors: ['thatch', 'thatchDark', 'thatch'], courses: [0.9, 1.9, 2.9], ridgeR: 0.3,
+  colors: ['thatch', 'thatchDark', 'thatch'], ridgeR: 0.3,
 });
 const RIDGE = roof.ridge;
 const gable = side => gableEnd({ x: HX + 0.05, side, baseY: TOP + 0.08, halfZ: HZ + 0.1, pitch: PITCH, color: 'wood' });
