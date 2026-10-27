@@ -34,7 +34,7 @@ const BAY = 0.3;                                 // the open bay starts at this 
 
 const roof = gableRoof({
   pitch: PITCH, halfZ: HZ + 0.05, baseY: TOP + 0.12, len: LEN + 0.6, over: [0.5, 0.4], thick: 0.26,
-  colors: ['slate', 'slateDark', 'slateLight'], courses: [0.8, 1.6, 2.4],
+  colors: ['slate', 'slateDark', 'slateLight'],
 });
 const RIDGE = roof.ridge;
 const gable = side => gableEnd({ x: HX + 0.05, side, baseY: TOP + 0.1, halfZ: HZ + 0.05, pitch: PITCH, color: 'stone' });

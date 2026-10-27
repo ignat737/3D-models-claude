@@ -34,7 +34,7 @@ const SHAFT = 6.4, CLOCK_TOP = 8.4, BELFRY_TOP = 9.8;
 
 const roof = gableRoof({
   pitch: PITCH, halfZ: HZ + 0.05, baseY: WALL_TOP, len: LEN + 0.7, over: [0.45, 0.45], thick: 0.26,
-  colors: ['tile', 'tileDark', 'tileLight'], courses: [0.9, 1.8, 2.7, 3.6],
+  colors: ['tile', 'tileDark', 'tileLight'],
 });
 const RIDGE = roof.ridge;
 const gable = side => gableEnd({ x: HX + 0.05, side, baseY: WALL_TOP - 0.02, halfZ: HZ + 0.05, pitch: PITCH, color: 'plaster' });

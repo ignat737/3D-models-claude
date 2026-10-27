@@ -4,23 +4,23 @@ import { DEG, rotX, rotZ } from '../unit-glb.mjs';
 
 export const box = (c, s, color, extra) => ({ c, s, color, ...extra });
 
-// A gable roof of sloped slabs with darker courses and an eave edge, plus a rolled ridge.
+// A gable roof of smooth sloped slabs with a darker eave board and a rolled ridge. The slab stops
+// inside the eave board, which is thicker and a bit longer, so the board hides the slab's end faces.
 // halfZ: half the depth of the walls under it; baseY: the wall top; over: [front, back] overhang.
 // Returns { parts, ridge } — ridge is the height of the ridge line.
-export function gableRoof({ pitch, halfZ, baseY, len, over = [0.35, 0.35], thick = 0.24, colors, courses = [0.9, 1.8, 2.7], cx = 0, cz = 0, ridgeR = 0.27 }) {
+export function gableRoof({ pitch, halfZ, baseY, len, over = [0.35, 0.35], thick = 0.24, colors, cx = 0, cz = 0, ridgeR = 0.27 }) {
   const [main, dark, light] = colors;
   const cos = Math.cos(pitch), sin = Math.sin(pitch);
   const ridge = baseY - 0.02 + halfZ * Math.tan(pitch) + thick / cos;
   const parts = [];
   for (const side of [1, -1]) {
     const slope = (halfZ + over[side > 0 ? 0 : 1]) / cos;
-    const slab = (s0, s1, t, lift, color) => {
+    const slab = (s0, s1, t, lift, color, extra = 0) => {
       const mid = (s0 + s1) / 2, d = t / 2 - lift;
       const c = [cx, ridge - sin * mid - cos * d, cz + side * (cos * mid - sin * d)];
-      return box(c, [len, t, s1 - s0], color, { q: rotX(pitch * side), pivot: c });
+      return box(c, [len + extra, t, s1 - s0], color, { q: rotX(pitch * side), pivot: c });
     };
-    parts.push(slab(-0.15, slope, thick, 0, main), slab(slope - 0.16, slope, thick + 0.08, 0.04, dark));
-    for (const s of courses) if (s + 0.2 < slope - 0.3) parts.push(slab(s, s + 0.2, thick, -0.02, dark));
+    parts.push(slab(-0.15, slope - 0.08, thick, 0, main), slab(slope - 0.16, slope, thick + 0.08, 0.04, dark, 0.1));
   }
   parts.push({ c: [cx, ridge + 0.02, cz], h: len + 0.1, r: [ridgeR, ridgeR], n: 6, q: rotZ(90 * DEG), color: light });
   return { parts, ridge };

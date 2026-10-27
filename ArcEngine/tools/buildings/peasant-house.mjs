@@ -35,11 +35,11 @@ const ROOF_LEN = LEN + 2 * OVER_END;
 const box = (c, s, color, extra) => ({ c, s, color, ...extra });
 
 // A roof slab on one slope: s0..s1 measured down the top surface from the ridge line.
-function slab(side, s0, s1, thick, lift, color) {
+function slab(side, s0, s1, thick, lift, color, extra = 0) {
   const dir = [0, -Math.sin(PITCH), Math.cos(PITCH) * side], nrm = [0, Math.cos(PITCH), Math.sin(PITCH) * side];
   const mid = (s0 + s1) / 2, d = thick / 2 - lift;
   const c = [0, RIDGE + dir[1] * mid - nrm[1] * d, dir[2] * mid - nrm[2] * d];
-  return box(c, [ROOF_LEN, thick, s1 - s0], color, { q: rotX(PITCH * side), pivot: c });
+  return box(c, [ROOF_LEN + extra, thick, s1 - s0], color, { q: rotX(PITCH * side), pivot: c });
 }
 
 // A timber strut in the plane of a gable end, from (y1, z1) to (y2, z2).
@@ -50,11 +50,9 @@ function strut(x, [y1, z1], [y2, z2], w, color) {
 
 const SLOPE = (HZ + OVER) / Math.cos(PITCH);
 const slopes = [1, -1].flatMap(side => [
-  slab(side, -0.15, SLOPE, T, 0, 'thatch'),
-  // Eave board and two bands of darker bundles: the thatch reads as layers, not a flat plank.
-  slab(side, SLOPE - 0.16, SLOPE, T + 0.08, 0.04, 'thatchDark'),
-  slab(side, 0.95, 1.15, T, -0.02, 'thatchDark'),
-  slab(side, 1.9, 2.1, T, -0.02, 'thatchDark'),
+  // The slab stops inside the longer, thicker eave board, which hides its end faces.
+  slab(side, -0.15, SLOPE - 0.08, T, 0, 'thatch'),
+  slab(side, SLOPE - 0.16, SLOPE, T + 0.08, 0.04, 'thatchDark', 0.1),
 ]);
 
 // A triangular prism lying on its side: a 3-sided frustum turned about Z, apex up. Local x is

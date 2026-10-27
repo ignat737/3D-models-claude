@@ -14,7 +14,7 @@ const LEN = 5.6, DEPTH = 4.2, HX = LEN / 2, HZ = DEPTH / 2;
 const FOOT = 0.25, TOP = 2.6, W = 0.35, H = TOP - FOOT, PITCH = 36 * DEG, BAY = 0.3;
 const roof = gableRoof({
   pitch: PITCH, halfZ: HZ + 0.05, baseY: TOP + 0.12, len: LEN + 0.7, over: [0.5, 0.4], thick: 0.26,
-  colors: ['iron', 'char', 'bone'], courses: [0.8, 1.6, 2.4],
+  colors: ['iron', 'char', 'bone'],
 });
 const gable = side => gableEnd({ x: HX + 0.05, side, baseY: TOP + 0.1, halfZ: HZ + 0.05, pitch: PITCH, color: 'stoneDark' });
 const hearth = [1.75, -0.75], anvil = [1.2, HZ - 0.55];

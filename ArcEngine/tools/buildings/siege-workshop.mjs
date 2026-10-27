@@ -36,7 +36,7 @@ const PITCH = 33 * DEG;
 
 const roof = gableRoof({
   pitch: PITCH, halfZ: HZ + 0.1, baseY: TOP + 0.16, len: LEN + 0.8, over: [0.6, 0.5], thick: 0.24,
-  colors: ['roof', 'roofDark', 'roofLight'], courses: [0.9, 1.8, 2.7],
+  colors: ['roof', 'roofDark', 'roofLight'],
 });
 const gable = side => gableEnd({ x: HX + 0.03, side, baseY: TOP + 0.14, halfZ: HZ + 0.1, pitch: PITCH, thick: T, color: 'plaster' });
 
